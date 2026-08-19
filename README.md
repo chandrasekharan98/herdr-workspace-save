@@ -139,12 +139,33 @@ overwrites it — no versioning. Rename the workspace first if you want two.
   "label": "reviews",
   "saved_at": "2026-08-05T16:26:29Z",
   "tabs": [
-    { "label": "1",
-      "root": { "type": "split", "direction": "down", "ratio": 0.5,
-        "first":  { "type": "pane", "cwd": "/tmp", "command": ["npm", "run", "dev"] },
-        "second": { "type": "pane", "cwd": "/src",
-                    "agent": { "source": "herdr:claude", "agent": "claude",
-                               "kind": "id", "value": "c1ba9b75-…" } } } }
+    {
+      "label": "1",
+      "root": {
+        "type": "split",
+        "direction": "down",
+        "ratio": 0.5,
+        "first": {
+          "type": "pane",
+          "cwd": "/tmp",
+          "command": [
+            "npm",
+            "run",
+            "dev"
+          ]
+        },
+        "second": {
+          "type": "pane",
+          "cwd": "/src",
+          "agent": {
+            "source": "herdr:claude",
+            "agent": "claude",
+            "kind": "id",
+            "value": "c1ba9b75-…"
+          }
+        }
+      }
+    }
   ]
 }
 ```
@@ -153,18 +174,6 @@ Hand-editable: delete a `command` you don't want re-armed, add `env`, retarget a
 On restore the `agent`/`command` keys are stripped out and the rest is passed to Herdr's
 `layout.apply` as-is.
 
-## Demo
-
-[VHS](https://github.com/charmbracelet/vhs) regenerates every image in this README:
-
-```bash
-vhs docs/demo.tape         # docs/demo.gif
-vhs docs/screenshots.tape  # docs/picker.png and docs/warning.png
-```
-
-Both run against a throwaway `herdr` session with its own `XDG_STATE_HOME`, so re-recording
-never sees or touches real saved workspaces, and both stop that session when they finish.
-Herdr refuses to nest, so the tapes unset any inherited `HERDR_*` before launching.
 
 ## Tests
 
@@ -172,5 +181,20 @@ Herdr refuses to nest, so the tapes unset any inherited `HERDR_*` before launchi
 python3 test_wss.py
 ```
 
-Covers the pure parts — key stripping, saved-to-live pane pairing, and command arming
-including the stale-transcript and unknown-agent fallbacks.
+Covers the pure parts — key stripping, saved-to-live pane pairing, missing cwds, and command
+arming including the stale-transcript, unknown-agent and no-integration fallbacks.
+
+## Demo
+
+`docs/demo.tape` regenerates the GIF at the top with
+[VHS](https://github.com/charmbracelet/vhs); `docs/keycaps.sh` burns the keypress captions in
+afterwards:
+
+```bash
+vhs docs/demo.tape && ./docs/keycaps.sh
+```
+
+It runs against a throwaway `herdr --session wss-demo` under its own `XDG_STATE_HOME`, so
+re-recording never reads or touches real saved workspaces. The status line needs a Nerd Font —
+the tape asks for `MesloLGS NF`; change `Set FontFamily` if you have a different one. Caption
+timings live in `keycaps.sh` and only move if the tape's `Sleep`s do.
