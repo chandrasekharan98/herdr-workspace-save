@@ -115,15 +115,17 @@ def slugify(label):
 # ---------------------------------------------------------------- capture
 
 
-def foreground_argv(pane_id):
+def foreground_argv(pane_id, warn, where):
     """The command a pane is running, or None when it is just sitting at a shell."""
     info = call("pane.process_info", {"pane_id": pane_id})["process_info"]
-    for proc in info.get("foreground_processes", []):
-        # A pane launched with a command reports it as the shell pid, so match on name only.
-        if proc.get("name") in SHELLS:
-            continue
-        return proc.get("argv") or None
-    return None
+    # A pane launched with a command reports it as the shell pid, so match on name only.
+    procs = [p for p in info.get("foreground_processes", []) if p.get("name") not in SHELLS]
+    if not procs:
+        return None
+    if len(procs) > 1:
+        rest = " | ".join(p.get("name", "?") for p in procs[1:])
+        warn.append(f"{where}: pipeline captured as its first stage only, dropping: {rest}")
+    return procs[0].get("argv") or None
 
 
 def capture_node(node, agents, warn, status, where):
@@ -149,7 +151,7 @@ def capture_node(node, agents, warn, status, where):
     else:
         if live.get("agent"):
             warn.append(why_no_session(live["agent"], status, node.get("label") or where or pane_id))
-        argv = foreground_argv(pane_id) if pane_id else None
+        argv = foreground_argv(pane_id, warn, node.get("label") or where or pane_id) if pane_id else None
         if argv:
             pane["command"] = argv
     return pane

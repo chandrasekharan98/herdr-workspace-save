@@ -50,8 +50,10 @@ Per pane, in this order:
 
 1. **Agent session.** Herdr already tracks a session ref for recognized agents
    (`{source, agent, kind, value}`); it is stored verbatim and armed as a resume command.
-2. **Foreground command.** Whatever the pane is running, from `pane.process-info`.
-   Panes sitting at a shell prompt record nothing.
+2. **Foreground command.** Whatever the pane is running, from `pane.process-info` — TUI
+   programs included, so `vim notes.md` and `htop` come back as themselves. A pane sitting at a
+   shell prompt records nothing: a command that already exited is not recoverable. A pipeline
+   records only its first stage, and saving warns which stages were dropped.
 3. **cwd**, always.
 
 Not captured: scrollback, env (Herdr's layout export doesn't expose it — `env` is honoured on
