@@ -11,7 +11,7 @@ Set Width 1200
 Set Height 680
 Set Padding 15
 Set Framerate 15
-Set PlaybackSpeed 1.5
+Set PlaybackSpeed 1.6
 
 Hide
 # Herdr refuses to nest, so drop any inherited session env before launching.
@@ -34,9 +34,9 @@ Sleep 2s
 
 # An agent on the left. Herdr's integration reports its session id to the plugin.
 Type "claude" Enter
-Sleep 4s
+Sleep 3s
 Type "in one sentence, what is a terminal multiplexer?" Enter
-Sleep 9s
+Sleep 7s
 
 # A server on the right, so the save has a running command to capture too.
 Ctrl+B
@@ -53,11 +53,18 @@ Sleep 3s
 # prefix+alt+W reopens it from the picker: pick a save, preview it, press enter.
 Ctrl+B
 Alt+w
-Sleep 4s
+Sleep 3s
 Enter
 
 # Restored panes are armed, not run — `claude --resume <id>` waits for enter.
 Sleep 4s
+
+# Press it in the agent pane: the same Claude session comes back with its history.
+Ctrl+B
+Type "h"
+Sleep 1s
+Enter
+Sleep 7s
 
 Hide
 Sleep 2s

@@ -1,23 +1,35 @@
 # herdr-workspace-save
 
-Save a Herdr workspace — layout, cwds, agent sessions, running commands — and reopen it later
-from an fzf picker.
+Save a Herdr workspace: its layout, cwds, agent sessions, running commands and reopen it later from an fzf picker.
 
-Reopening rebuilds the tabs and splits, then **types** each pane's command into it without
-running it. You press enter in the panes you actually want. Reopening a six-agent workspace
+Reopening rebuilds the tabs and splits, then **types** each pane's command into it without running it. You press enter in the panes you actually want. Reopening a six-agent workspace
 therefore costs nothing until you say so.
 
-![Saving a workspace, then reopening it from the picker with every command armed](docs/demo.gif)
+![Saving a workspace, reopening it from the picker with every command armed, then pressing enter to resume the Claude session](docs/demo.gif)
 
-## Install (local)
+## Install
+
+```bash
+herdr plugin install chandrasekharan98/herdr-workspace-save
+```
+
+Run `herdr server reload-config` afterwards if a server is already up. `install` takes GitHub
+shorthand only (`owner/repo`, optionally `/subdir`); `--ref` pins a tag or branch, `-y` skips the
+confirmation preview. There is no update command — reinstall to refresh.
+
+For hacking on it locally, link the checkout instead:
 
 ```bash
 herdr plugin link /path/to/herdr-workspace-save
 ```
 
+`herdr plugin unlink workspace-save` drops a linked copy and leaves the files alone;
+`herdr plugin uninstall workspace-save` removes an installed one. Installing over a linked plugin
+is refused — unlink first. `herdr plugin list` shows what is registered.
+
 Requires `python3` and `fzf`. MIT licensed.
 
-## Keys
+## Configuration
 
 Add to `~/.config/herdr/config.toml`, then `herdr server reload-config`:
 
