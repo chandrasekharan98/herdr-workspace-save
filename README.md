@@ -2,10 +2,21 @@
 
 Save a Herdr workspace: its layout, cwds, agent sessions, running commands and reopen it later from an fzf picker.
 
-Reopening rebuilds the tabs and splits, then **types** each pane's command into it without running it. You press enter in the panes you actually want. Reopening a six-agent workspace
-therefore costs nothing until you say so.
+Reopening rebuilds the tabs and splits, then **types** each pane's command into it without running it. You press enter in the panes you actually want. Reopening a six-agent workspace therefore costs nothing until you say so.
+
+## Why
+
+Are you also guilty of using a ton of workspaces that you can't afford to close just yet? Doesn't the growing list ick your brain?
+Then this is the perfect plugin for you :D
+
+See it in action!
 
 ![Saving a workspace, reopening it from the picker with every command armed, then pressing enter to resume the Claude session](docs/demo.gif)
+
+## Requirements
+
+- `python3`
+- `fzf`
 
 ## Install
 
@@ -13,21 +24,13 @@ therefore costs nothing until you say so.
 herdr plugin install chandrasekharan98/herdr-workspace-save
 ```
 
-Run `herdr server reload-config` afterwards if a server is already up. `install` takes GitHub
-shorthand only (`owner/repo`, optionally `/subdir`); `--ref` pins a tag or branch, `-y` skips the
-confirmation preview. There is no update command — reinstall to refresh.
+Run `herdr server reload-config` afterwards if a server is already up.
 
 For hacking on it locally, link the checkout instead:
 
 ```bash
 herdr plugin link /path/to/herdr-workspace-save
 ```
-
-`herdr plugin unlink workspace-save` drops a linked copy and leaves the files alone;
-`herdr plugin uninstall workspace-save` removes an installed one. Installing over a linked plugin
-is refused — unlink first. `herdr plugin list` shows what is registered.
-
-Requires `python3` and `fzf`. MIT licensed.
 
 ## Configuration
 
@@ -195,18 +198,3 @@ python3 test_wss.py
 
 Covers the pure parts — key stripping, saved-to-live pane pairing, missing cwds, and command
 arming including the stale-transcript, unknown-agent and no-integration fallbacks.
-
-## Demo
-
-`docs/demo.tape` regenerates the GIF at the top with
-[VHS](https://github.com/charmbracelet/vhs); `docs/keycaps.sh` burns the keypress captions in
-afterwards:
-
-```bash
-vhs docs/demo.tape && ./docs/keycaps.sh
-```
-
-It runs against a throwaway `herdr --session wss-demo` under its own `XDG_STATE_HOME`, so
-re-recording never reads or touches real saved workspaces. The status line needs a Nerd Font —
-the tape asks for `MesloLGS NF`; change `Set FontFamily` if you have a different one. Caption
-timings live in `keycaps.sh` and only move if the tape's `Sleep`s do.
