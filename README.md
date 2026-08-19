@@ -84,7 +84,10 @@ claude 11c3d682: transcript deleted, opened fresh — raise cleanupPeriodDays
 mastracode: saved without a session id, opened fresh
 ```
 
-Warnings go to the reopen/save notification and to stderr (`herdr plugin log list`).
+Where warnings show up: a Herdr notification with a `request` sound, and — when you reopened
+from the picker — the picker pane stays open listing them until you press enter. Herdr does not
+surface plugin stderr on screen, so the notification is the only signal for a keybind-invoked
+save; `herdr plugin log list --plugin workspace-save` has the full text.
 
 ## Resume commands
 

@@ -100,9 +100,11 @@ def call(method, params):
     return reply["result"]
 
 
-def notify(title, body):
-    subprocess.run([HERDR, "notification", "show", title, "--body", body],
-                   stdout=subprocess.DEVNULL)
+def notify(title, body, alert=False):
+    cmd = [HERDR, "notification", "show", title, "--body", body]
+    if alert:
+        cmd += ["--sound", "request"]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL)
 
 
 def slugify(label):
@@ -175,7 +177,7 @@ def save(name=None):
     with open(path, "w") as f:
         json.dump(doc, f, indent=2)
         f.write("\n")
-    notify(f"Saved '{doc['label']}'", "\n".join([path] + sorted(set(warn))))
+    notify(f"Saved '{doc['label']}'", "\n".join([path] + sorted(set(warn))), alert=bool(warn))
     print(path)
     for line in warn:
         print(line, file=sys.stderr)
@@ -291,10 +293,12 @@ def restore(name):
     if gone:
         body.append(f"{len(gone)} cwd(s) gone, opened in $HOME: " + ", ".join(sorted(set(gone))))
     body += sorted(set(warn))
-    notify(f"Reopened '{doc['label']}'", "\n".join(body))
+    warn = sorted(set(warn)) + [f"cwd gone, opened in $HOME: {c}" for c in sorted(set(gone))]
+    notify(f"Reopened '{doc['label']}'", "\n".join(body), alert=bool(warn))
     print(ws_id)
-    for line in sorted(set(warn)):
+    for line in warn:
         print(line, file=sys.stderr)
+    return warn
 
 
 # ---------------------------------------------------------------- picker
@@ -337,7 +341,10 @@ def pick():
     )
     if fzf.returncode != 0 or not fzf.stdout.strip():
         return
-    restore(fzf.stdout.split("\t")[0])
+    warn = restore(fzf.stdout.split("\t")[0])
+    if warn:
+        print("\nReopened with warnings:\n  " + "\n  ".join(warn))
+        input("\nPress enter to close…")
 
 
 def open_picker():
