@@ -7,7 +7,7 @@ Reopening rebuilds the tabs and splits, then **types** each pane's command into 
 running it. You press enter in the panes you actually want. Reopening a six-agent workspace
 therefore costs nothing until you say so.
 
-![Saving a workspace and reopening it from the picker](docs/demo.gif)
+![Saving a workspace, then reopening it from the picker with every command armed](docs/demo.gif)
 
 ## Install (local)
 
@@ -42,6 +42,8 @@ description = "open saved workspace"
 | `workspace-save.save` | Save the focused workspace. Slug comes from its label. |
 | `workspace-save.save-close` | Save, then close the workspace. |
 | `workspace-save.open` | Open the picker overlay; enter reopens the selection. |
+
+![The picker: saved workspaces on the left, the selected save previewed on the right](docs/picker.png)
 
 Run any manually with `herdr plugin action invoke <id> --plugin workspace-save`.
 `python3 wss.py list` prints the save directory and one line per save.
@@ -91,15 +93,7 @@ mastracode: saved without a session id, opened fresh
 Where warnings show up. Herdr renders plugin stdout/stderr nowhere on screen, so warnings get
 their own overlay pane that stays open until you press enter:
 
-```
-Saved 'cli-related', but 1 agent session(s) were NOT captured.
-
-  - claude in human-try: no session id reported yet
-
-Those panes reopen as fresh agents.
-
-Saved to: ~/.local/state/herdr/plugins/workspace-save/workspaces/cli-related.json
-```
+![A save that could not capture two agent sessions, and why](docs/warning.png)
 
 Reopening from the picker keeps that pane open the same way. A notification with the `request`
 sound fires alongside, and `herdr plugin log list --plugin workspace-save` has the raw text.
@@ -161,14 +155,16 @@ On restore the `agent`/`command` keys are stripped out and the rest is passed to
 
 ## Demo
 
-`docs/demo.tape` regenerates the GIF above with [VHS](https://github.com/charmbracelet/vhs):
+[VHS](https://github.com/charmbracelet/vhs) regenerates every image in this README:
 
 ```bash
-vhs docs/demo.tape
+vhs docs/demo.tape         # docs/demo.gif
+vhs docs/screenshots.tape  # docs/picker.png and docs/warning.png
 ```
 
-It runs against a throwaway `herdr --session wss-demo`, so re-recording never touches your real
-workspaces. Adjust `FontSize`/`Width`/`Height` at the top of the tape if the TUI wraps.
+Both run against a throwaway `herdr` session with its own `XDG_STATE_HOME`, so re-recording
+never sees or touches real saved workspaces, and both stop that session when they finish.
+Herdr refuses to nest, so the tapes unset any inherited `HERDR_*` before launching.
 
 ## Tests
 
