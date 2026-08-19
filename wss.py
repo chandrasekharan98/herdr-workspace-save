@@ -15,6 +15,7 @@ import time
 FORMAT_VERSION = 1
 HERDR = os.environ.get("HERDR_BIN_PATH", "herdr")
 
+# Mirrors Herdr's own resume table (src/app/agent_resume.rs); re-check it when Herdr updates.
 # {ref} is the agent's own session id or session path, as reported to Herdr.
 # Wrong flag for your agent? Override in config.json — armed commands are shown before you run them.
 DEFAULT_RESUME = {
@@ -34,32 +35,7 @@ DEFAULT_RESUME = {
     "mastracode": ["mastracode", "--thread", "{ref}"],
 }
 
-def integration_status():
-    """agent -> Herdr integration state. Only agents with an installed one report a session ref."""
-    try:
-        out = subprocess.run([HERDR, "integration", "status"],
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout
-    except OSError:
-        return {}
-    status = {}
-    for line in out.splitlines():
-        name, sep, rest = line.partition(":")
-        if sep:
-            status[name.strip()] = rest.split("(/")[0].strip()  # drop the integration file path
-    return status
-
-
-def why_no_session(agent, status, where):
-    at = f"{agent} in {where}"
-    if agent not in status:
-        return f"{at}: Herdr ships no state integration for {agent}, its session cannot be captured"
-    if status[agent].startswith("not installed"):
-        return f"{at}: integration not installed — run: herdr integration install {agent}"
-    if status[agent].startswith("outdated"):
-        return f"{at}: integration {status[agent]} — run: herdr integration install {agent}"
-    return f"{at}: no session id reported yet"
-
-
+REPORT = "last-report.txt"
 SHELLS = {"bash", "zsh", "fish", "sh", "dash", "ksh", "nu", "elvish", "xonsh"}
 
 
@@ -113,6 +89,32 @@ def slugify(label):
 
 
 # ---------------------------------------------------------------- capture
+
+
+def integration_status():
+    """agent -> Herdr integration state. Only agents with an installed one report a session ref."""
+    try:
+        out = subprocess.run([HERDR, "integration", "status"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout
+    except OSError:
+        return {}
+    status = {}
+    for line in out.splitlines():
+        name, sep, rest = line.partition(":")
+        if sep:
+            status[name.strip()] = rest.split("(/")[0].strip()  # drop the integration file path
+    return status
+
+
+def why_no_session(agent, status, where):
+    at = f"{agent} in {where}"
+    if agent not in status:
+        return f"{at}: Herdr ships no state integration for {agent}, its session cannot be captured"
+    if status[agent].startswith("not installed"):
+        return f"{at}: integration not installed — run: herdr integration install {agent}"
+    if status[agent].startswith("outdated"):
+        return f"{at}: integration {status[agent]} — run: herdr integration install {agent}"
+    return f"{at}: no session id reported yet"
 
 
 def foreground_argv(pane_id, warn, where):
@@ -360,9 +362,6 @@ def open_pane(entrypoint):
                     "--plugin", os.environ.get("HERDR_PLUGIN_ID", "workspace-save"),
                     "--entrypoint", entrypoint, "--placement", "overlay"],
                    stdout=subprocess.DEVNULL)
-
-
-REPORT = "last-report.txt"
 
 
 def report(headline, lines, footer=""):

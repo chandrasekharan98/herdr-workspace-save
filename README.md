@@ -7,6 +7,8 @@ Reopening rebuilds the tabs and splits, then **types** each pane's command into 
 running it. You press enter in the panes you actually want. Reopening a six-agent workspace
 therefore costs nothing until you say so.
 
+![Saving a workspace and reopening it from the picker](docs/demo.gif)
+
 ## Install (local)
 
 ```bash
@@ -156,6 +158,17 @@ overwrites it — no versioning. Rename the workspace first if you want two.
 Hand-editable: delete a `command` you don't want re-armed, add `env`, retarget a `cwd`.
 On restore the `agent`/`command` keys are stripped out and the rest is passed to Herdr's
 `layout.apply` as-is.
+
+## Demo
+
+`docs/demo.tape` regenerates the GIF above with [VHS](https://github.com/charmbracelet/vhs):
+
+```bash
+vhs docs/demo.tape
+```
+
+It runs against a throwaway `herdr --session wss-demo`, so re-recording never touches your real
+workspaces. Adjust `FontSize`/`Width`/`Height` at the top of the tape if the TUI wraps.
 
 ## Tests
 
