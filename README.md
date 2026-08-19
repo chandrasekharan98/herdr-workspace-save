@@ -13,7 +13,7 @@ therefore costs nothing until you say so.
 herdr plugin link /path/to/herdr-workspace-save
 ```
 
-Requires `python3` and `fzf`.
+Requires `python3` and `fzf`. MIT licensed.
 
 ## Keys
 
@@ -57,6 +57,35 @@ Per pane, in this order:
 Not captured: scrollback, env (Herdr's layout export doesn't expose it — `env` is honoured on
 restore if you add it by hand), and anything a process holds only in memory.
 
+## Agent support
+
+Resuming an agent needs two things, and the plugin tells you which one is missing.
+
+**1. Herdr must report a session ref for it.** That comes from Herdr's state integration
+(`herdr integration status`). Agents Herdr detects but ships no integration for — currently
+`gemini`, `agy`, `cline`, `kiro`, `amp`, `maki` — can never be resumed; their panes reopen
+fresh. Saving warns per pane:
+
+```
+codex: integration not installed — run: herdr integration install codex
+pi: integration outdated (v6 < v8) — run: herdr integration install pi
+gemini: Herdr ships no state integration, sessions cannot be captured
+claude: no session id reported yet, pane will reopen fresh
+```
+
+**2. A resume command must be known** for that agent. Defaults match Herdr's own internal
+resume table: `--resume` for claude, codex (`codex resume`), grok, droid, devin, hermes,
+cursor (`cursor-agent`), qodercli; `--session` for pi, opencode, kimi, kilo;
+`--conversation` for agy; `--thread` for mastracode. Reopening warns when it can't resume:
+
+```
+copilot: no resume command known, opened fresh — add one to config.json
+claude 11c3d682: transcript deleted, opened fresh — raise cleanupPeriodDays
+mastracode: saved without a session id, opened fresh
+```
+
+Warnings go to the reopen/save notification and to stderr (`herdr plugin log list`).
+
 ## Resume commands
 
 `{ref}` is substituted with the agent's session id or path:
@@ -79,6 +108,10 @@ want month-old saved workspaces to still resume.
 
 `$HERDR_PLUGIN_STATE_DIR/workspaces/<slug>.json`, i.e.
 `~/.local/state/herdr/plugins/workspace-save/workspaces/`.
+
+If a saved `cwd` no longer exists (deleted worktree), Herdr silently opens that pane in
+`$HOME` — reopening warns which paths were missing, so an armed `--resume` in the wrong
+directory doesn't go unnoticed.
 
 The picker header shows that directory, previews the selected file, and saving raises a
 notification with the full path. Saving a workspace whose label matches an existing save

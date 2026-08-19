@@ -45,7 +45,7 @@ def integration_status():
     for line in out.splitlines():
         name, sep, rest = line.partition(":")
         if sep:
-            status[name.strip()] = rest.strip()
+            status[name.strip()] = rest.split("(/")[0].strip()  # drop the integration file path
     return status
 
 
