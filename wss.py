@@ -49,14 +49,15 @@ def integration_status():
     return status
 
 
-def why_no_session(agent, status):
+def why_no_session(agent, status, where):
+    at = f"{agent} in {where}"
     if agent not in status:
-        return f"{agent}: Herdr ships no state integration, sessions cannot be captured"
+        return f"{at}: Herdr ships no state integration for {agent}, its session cannot be captured"
     if status[agent].startswith("not installed"):
-        return f"{agent}: integration not installed — run: herdr integration install {agent}"
+        return f"{at}: integration not installed — run: herdr integration install {agent}"
     if status[agent].startswith("outdated"):
-        return f"{agent}: integration {status[agent]} — run: herdr integration install {agent}"
-    return f"{agent}: no session id reported yet, pane will reopen fresh"
+        return f"{at}: integration {status[agent]} — run: herdr integration install {agent}"
+    return f"{at}: no session id reported yet"
 
 
 SHELLS = {"bash", "zsh", "fish", "sh", "dash", "ksh", "nu", "elvish", "xonsh"}
@@ -125,14 +126,14 @@ def foreground_argv(pane_id):
     return None
 
 
-def capture_node(node, agents, warn, status):
+def capture_node(node, agents, warn, status, where):
     if node["type"] == "split":
         return {
             "type": "split",
             "direction": node["direction"],
             "ratio": node["ratio"],
-            "first": capture_node(node["first"], agents, warn, status),
-            "second": capture_node(node["second"], agents, warn, status),
+            "first": capture_node(node["first"], agents, warn, status, where),
+            "second": capture_node(node["second"], agents, warn, status, where),
         }
 
     pane = {"type": "pane"}
@@ -147,7 +148,7 @@ def capture_node(node, agents, warn, status):
         pane["agent"] = session
     else:
         if live.get("agent"):
-            warn.append(why_no_session(live["agent"], status))
+            warn.append(why_no_session(live["agent"], status, node.get("label") or where or pane_id))
         argv = foreground_argv(pane_id) if pane_id else None
         if argv:
             pane["command"] = argv
@@ -164,7 +165,8 @@ def save(name=None):
     tabs, warn, status = [], [], integration_status()
     for tab in call("tab.list", {"workspace_id": ws_id})["tabs"]:
         root = call("layout.export", {"tab_id": tab["tab_id"]})["layout"]["root"]
-        tabs.append({"label": tab.get("label"), "root": capture_node(root, agents, warn, status)})
+        tabs.append({"label": tab.get("label"),
+                     "root": capture_node(root, agents, warn, status, tab.get("label"))})
 
     doc = {
         "version": FORMAT_VERSION,
@@ -177,10 +179,14 @@ def save(name=None):
     with open(path, "w") as f:
         json.dump(doc, f, indent=2)
         f.write("\n")
-    notify(f"Saved '{doc['label']}'", "\n".join([path] + sorted(set(warn))), alert=bool(warn))
+    warn = sorted(set(warn))
+    notify(f"Saved '{doc['label']}'", "\n".join([path] + warn), alert=bool(warn))
     print(path)
     for line in warn:
         print(line, file=sys.stderr)
+    if warn:
+        report(f"Saved '{doc['label']}', but {len(warn)} agent session(s) were NOT captured.",
+               warn, f"Those panes reopen as fresh agents.\n\nSaved to: {path}")
 
 
 def save_and_close():
@@ -347,17 +353,35 @@ def pick():
         input("\nPress enter to close…")
 
 
-def open_picker():
+def open_pane(entrypoint):
     subprocess.run([HERDR, "plugin", "pane", "open",
                     "--plugin", os.environ.get("HERDR_PLUGIN_ID", "workspace-save"),
-                    "--entrypoint", "picker", "--placement", "overlay"])
+                    "--entrypoint", entrypoint, "--placement", "overlay"],
+                   stdout=subprocess.DEVNULL)
+
+
+REPORT = "last-report.txt"
+
+
+def report(headline, lines, footer=""):
+    """Stage a message and open a pane for it: Herdr shows plugin output nowhere else."""
+    with open(os.path.join(state_dir(), REPORT), "w") as f:
+        f.write("\n".join([headline, ""] + [f"  - {line}" for line in lines] + ["", footer]))
+    open_pane("report")
+
+
+def show_report():
+    path = os.path.join(state_dir(), REPORT)
+    print(open(path).read() if os.path.exists(path) else "Nothing to report.")
+    input("\nPress enter to close…")
 
 
 COMMANDS = {
     "save": lambda: save(sys.argv[2] if len(sys.argv) > 2 else None),
     "save-close": save_and_close,
-    "open": open_picker,
+    "open": lambda: open_pane("picker"),
     "pick": pick,
+    "report": show_report,
     "list": list_saved,
     "restore": lambda: restore(sys.argv[2]),
 }

@@ -41,10 +41,11 @@ warn = []
 assert wss.armed_command(SAVED["second"], table, warn) == "claude"
 assert "transcript deleted" in warn[0], warn
 
-assert "no state integration" in wss.why_no_session("gemini", {"claude": "current (v7)"})
-assert "integration install codex" in wss.why_no_session("codex", {"codex": "not installed (/p)"})
-assert "integration install pi" in wss.why_no_session("pi", {"pi": "outdated (v6 < v8)"})
-assert "no session id reported yet" in wss.why_no_session("claude", {"claude": "current (v7)"})
+CURRENT = {"claude": "current (v7)"}
+assert "no state integration" in wss.why_no_session("gemini", CURRENT, "t1")
+assert "integration install codex" in wss.why_no_session("codex", {"codex": "not installed"}, "t1")
+assert "integration install pi" in wss.why_no_session("pi", {"pi": "outdated (v6 < v8)"}, "t1")
+assert wss.why_no_session("claude", CURRENT, "sideshow") == "claude in sideshow: no session id reported yet"
 
 CWDS = {"type": "split", "direction": "down", "ratio": 0.5,
         "first": {"type": "pane", "cwd": "/"},

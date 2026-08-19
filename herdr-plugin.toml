@@ -25,3 +25,9 @@ id = "picker"
 title = "Saved workspaces"
 placement = "overlay"
 command = ["python3", "wss.py", "pick"]
+
+[[panes]]
+id = "report"
+title = "Workspace save warnings"
+placement = "overlay"
+command = ["python3", "wss.py", "report"]

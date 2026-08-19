@@ -84,10 +84,22 @@ claude 11c3d682: transcript deleted, opened fresh — raise cleanupPeriodDays
 mastracode: saved without a session id, opened fresh
 ```
 
-Where warnings show up: a Herdr notification with a `request` sound, and — when you reopened
-from the picker — the picker pane stays open listing them until you press enter. Herdr does not
-surface plugin stderr on screen, so the notification is the only signal for a keybind-invoked
-save; `herdr plugin log list --plugin workspace-save` has the full text.
+Where warnings show up. Herdr renders plugin stdout/stderr nowhere on screen, so warnings get
+their own overlay pane that stays open until you press enter:
+
+```
+Saved 'cli-related', but 1 agent session(s) were NOT captured.
+
+  - claude in human-try: no session id reported yet
+
+Those panes reopen as fresh agents.
+
+Saved to: ~/.local/state/herdr/plugins/workspace-save/workspaces/cli-related.json
+```
+
+Reopening from the picker keeps that pane open the same way. A notification with the `request`
+sound fires alongside, and `herdr plugin log list --plugin workspace-save` has the raw text.
+A save with nothing to warn about opens no pane.
 
 ## Resume commands
 
