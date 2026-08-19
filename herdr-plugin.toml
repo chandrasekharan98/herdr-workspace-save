@@ -1,0 +1,27 @@
+id = "workspace-save"
+name = "Workspace Save"
+version = "0.1.0"
+min_herdr_version = "0.7.4"
+description = "Save the current workspace layout to JSON and reopen it later from a picker."
+platforms = ["macos", "linux"]
+
+[[actions]]
+id = "save"
+title = "Save workspace"
+command = ["python3", "wss.py", "save"]
+
+[[actions]]
+id = "save-close"
+title = "Save and close workspace"
+command = ["python3", "wss.py", "save-close"]
+
+[[actions]]
+id = "open"
+title = "Open saved workspace"
+command = ["python3", "wss.py", "open"]
+
+[[panes]]
+id = "picker"
+title = "Saved workspaces"
+placement = "overlay"
+command = ["python3", "wss.py", "pick"]
