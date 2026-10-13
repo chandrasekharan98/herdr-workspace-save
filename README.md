@@ -58,6 +58,10 @@ description = "open saved workspace"
 | `workspace-save.save-close` | Save, then close the workspace. |
 | `workspace-save.open` | Open the picker overlay; enter reopens the selection. |
 
+In the picker, `ctrl-x` deletes the selected save and `ctrl-z` undoes it. There is no
+confirmation prompt, because a delete is not final: it moves the file to `workspaces/trash/`,
+which keeps it for 7 days. `ctrl-z` restores the most recent delete first.
+
 ![The picker: saved workspaces on the left, the selected save previewed on the right](docs/picker.png)
 
 Run any manually with `herdr plugin action invoke <id> --plugin workspace-save`.

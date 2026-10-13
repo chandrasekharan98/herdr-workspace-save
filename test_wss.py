@@ -52,4 +52,17 @@ CWDS = {"type": "split", "direction": "down", "ratio": 0.5,
         "second": {"type": "pane", "cwd": "/no/such/dir"}}
 assert wss.missing_cwds(CWDS, []) == ["/no/such/dir"]
 
+import os, tempfile, time
+os.environ["HERDR_PLUGIN_STATE_DIR"] = tempfile.mkdtemp()
+for name in ("a", "b"):
+    open(os.path.join(wss.state_dir(), name + ".json"), "w").write("{}")
+wss.delete("a"); time.sleep(0.01); wss.delete("b")
+assert wss.menu() == "", wss.menu()
+wss.undelete()  # newest delete first
+assert wss.menu().startswith("b\t"), wss.menu()
+os.utime(os.path.join(wss.trash_dir(), "a.json"), (0, 0))
+wss.purge_trash()
+wss.undelete()
+assert [e[0] for e in wss.entries()] == ["b"], wss.entries()
+
 print("ok")

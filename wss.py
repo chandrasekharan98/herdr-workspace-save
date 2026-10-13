@@ -327,6 +327,44 @@ def entries():
     return out
 
 
+TRASH_DAYS = 7
+
+
+def trash_dir():
+    d = os.path.join(state_dir(), "trash")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def delete(name):
+    """Soft delete: move to trash/ and stamp the time, so undelete restores the newest first."""
+    src = os.path.join(state_dir(), name + ".json")
+    if os.path.exists(src):
+        dst = os.path.join(trash_dir(), name + ".json")
+        os.replace(src, dst)
+        os.utime(dst)
+
+
+def undelete():
+    trashed = sorted(glob.glob(os.path.join(trash_dir(), "*.json")), key=os.path.getmtime)
+    for path in reversed(trashed):
+        dst = os.path.join(state_dir(), os.path.basename(path))
+        if not os.path.exists(dst):  # re-saved since the delete: the newer save wins
+            os.replace(path, dst)
+            return
+
+
+def purge_trash():
+    cutoff = time.time() - TRASH_DAYS * 86400
+    for path in glob.glob(os.path.join(trash_dir(), "*.json")):
+        if os.path.getmtime(path) < cutoff:
+            os.remove(path)
+
+
+def menu():
+    return "\n".join(f"{n}\t{l}\t{ts}\t{t} tabs\t{p}" for n, l, ts, t, p in entries())
+
+
 def list_saved():
     print(state_dir())
     for name, label, saved_at, tabs, path in entries():
@@ -338,16 +376,23 @@ def pick():
         print("fzf not found on PATH. Install it, or run: python3 wss.py list")
         input("Press enter to close…")
         return
-    rows = entries()
+    purge_trash()
+    rows = menu()
     if not rows:
         print(f"No saved workspaces yet in {state_dir()}")
         input("Press enter to close…")
         return
-    menu = "\n".join(f"{n}\t{l}\t{ts}\t{t} tabs\t{p}" for n, l, ts, t, p in rows)
+    # Delete is undoable instead of confirmed: one keypress, the row vanishes, ctrl-z brings it back.
+    # ctrl-x, not ctrl-d: shell habit sends ctrl-d to quit.
+    wss = f"{shlex.quote(sys.executable)} {shlex.quote(os.path.abspath(__file__))}"
+    header = f"enter reopens · ctrl-x deletes · ctrl-z undoes · saved to {state_dir()}"
     fzf = subprocess.run(
         ["fzf", "--delimiter=\t", "--with-nth=1,2,3,4", "--prompt=saved workspace> ",
-         "--header=enter reopens · saved to " + state_dir(), "--preview", "cat {5}"],
-        input=menu, stdout=subprocess.PIPE, text=True,  # stderr stays on the tty: that is fzf's UI
+         "--header=" + header, "--preview", "cat {5}",
+         "--bind", f"ctrl-x:transform-header(echo deleted {{1}} · ctrl-z undoes · kept {TRASH_DAYS} days in trash/)"
+                   f"+execute-silent({wss} delete {{1}})+reload({wss} menu)",
+         "--bind", f"ctrl-z:execute-silent({wss} undelete)+reload({wss} menu)+change-header({header})"],
+        input=rows, stdout=subprocess.PIPE, text=True,  # stderr stays on the tty: that is fzf's UI
     )
     if fzf.returncode != 0 or not fzf.stdout.strip():
         return
@@ -384,6 +429,9 @@ COMMANDS = {
     "pick": pick,
     "report": show_report,
     "list": list_saved,
+    "menu": lambda: print(menu()),
+    "delete": lambda: delete(sys.argv[2]),
+    "undelete": undelete,
     "restore": lambda: restore(sys.argv[2]),
 }
 
