@@ -1,101 +1,92 @@
-# herdr-workspace-save
+# Herdr Workspace Save
 
-Save a Herdr workspace (its layout, folders, agent sessions and running commands) and reopen
-it later, as it was. There are two builds, one for the **Herdr desktop app** and one for the
-**herdr TUI**. They install differently but read and write the same saves, so a workspace
-saved in one opens in the other.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Herdr app 0.1.15+](https://img.shields.io/badge/herdr--app-0.1.15%2B-6e56cf)
+![herdr TUI](https://img.shields.io/badge/herdr-TUI-555)
 
-- [Herdr app](#herdr-app): a mod (`app/`), with a dialog that previews each save.
-- [herdr TUI](#herdr-tui): a plugin (repo root), with an fzf picker.
-
-## Why
-
-Are you also guilty of using a ton of workspaces that you can't afford to close just yet? Doesn't the growing list ick your brain?
-Then this is the perfect plugin for you :D
-
-## Herdr app
+Close the Herdr workspaces you're not using, and get them back as they were: tabs, splits,
+folders, running commands and Claude Code conversations.
 
 ![Saving a workspace, closing it, browsing saved workspaces with their previews, and reopening it with Claude Code resumed](app/demo.gif)
 
-![The Saved workspaces dialog: saves on the left, the selected one's tab drawn with its panes' screens on the right](app/preview.png)
+> [!TIP]
+> Using the herdr TUI? See [herdr TUI](#herdr-tui). Both builds read the same saves.
 
-### Install
+## Install
 
-Requires `herdr-app` with herdr-core (`hc`) on PATH, and `python3`.
-
-Paste into an agent running in Herdr:
+Paste into an agent running in the Herdr app:
 
 ```text
 Read ~/.config/herdr-app/AGENTS.md, then add this mod: github.com/chandrasekharan98/herdr-workspace-save/tree/main/app
 ```
 
-Or by hand: copy `app/mods/workspace-save/` and `app/mods/workspace-save-now/` to
-`~/.config/herdr-app/mods/`, and merge `app/keys.json` into `~/.config/herdr-app/keys.json`.
-Keep the folder name `workspace-save`: both mods run `mods/workspace-save/wss.py`.
+<details>
+<summary>By hand</summary>
 
-The mods run `python3` and `hc` on your machine (through `exec`). They read and write files
-outside their folder: `~/.local/state/herdr/plugins/workspace-save/` (the saves) and
-`~/.claude/sessions/` (read only, see [Agent sessions](#agent-sessions)).
+Copy `app/mods/workspace-save/` and `app/mods/workspace-save-now/` to
+`~/.config/herdr-app/mods/` (keep the folder names), and merge `app/keys.json` into
+`~/.config/herdr-app/keys.json`.
 
-### Use
+</details>
 
-| Key | What it does |
+**Requires:** `python3`, and herdr-core's `hc` on PATH.
+
+The mods run `python3` and `hc`, write saves to `~/.local/state/herdr/plugins/workspace-save/`
+and read `~/.claude/sessions/`.
+
+## Quick start
+
+1. Press `ctrl-b shift-s` in a space to save it.
+2. Close the space whenever you like.
+3. Press `ctrl-b alt-w` to see your saves. Select one to preview its tabs and screens.
+4. Press Enter, or click it, to reopen it. Claude Code picks up the same conversation.
+
+| Key | Does |
 | --- | --- |
-| `ctrl-b shift-s` | Save the shown space |
-| `ctrl-b alt-w` | Open the Saved workspaces dialog |
+| `ctrl-b shift-s` | Save the current space |
+| `ctrl-b alt-w` | Open saved workspaces |
+| `ctrl+s` / `ctrl+shift+s` | In the dialog: save, or save and close |
+| `ctrl+x` / `ctrl+z` | In the dialog: delete, undo |
 
-In the dialog: type to search, Up/Down and Enter (or a click) reopen a save. `ctrl+x` (or ✕)
-deletes the selected save and `ctrl+z` undoes it. `ctrl+s` saves the space under the dialog,
-`ctrl+shift+s` saves it and closes the space; the two buttons at the top do the same. Esc
-closes it.
+Everything works with the mouse too: click a save to reopen it, ✕ to delete it, or use the
+**Save this space** and **Save and close** buttons.
 
-Beside the list, a preview shows each tab of the selected save as it looked: its splits in
-place, and in each pane its folder, the command reopening runs, and the screen text captured
-when you saved (any program: agents, `btop`, editors). It's text, so colors aren't kept. The
-preview only reads the save from disk. It runs no agent, so it spends no tokens.
+![The Saved workspaces dialog: saves on the left, the selected one's tab drawn with its panes' screens on the right](app/preview.png)
 
-Optional, in your own layout (see `app/RECIPE.md`, "Optional: space menu"): "Save
-workspace", "Save and close" and "Open saved workspace…" when you right-click a space, and
-"Open saved workspace…" when you right-click the empty part of the spaces panel. Shipped
-layouts and mods can't be changed and a mod can't add items to another mod's menu, so these
-need clones of the `spaces` and `menu` mods. To add them, ask your agent: "add the
-workspace-save space menu items to my layout".
+Want save and open in the spaces right-click menu? Ask your agent to "add the
+workspace-save space menu items to my layout" ([how](app/RECIPE.md#optional-drawer-and-space-menu)).
 
-Results and warnings show as toasts. Reopening runs each pane's command at once: the app
-can't type a command without pressing enter, the way the TUI does.
+## Update and uninstall
 
-Not yet in the app: spaces on other machines, mod panes (Files, Changes) and split sizes.
-Splits come back in the right places, but not at their saved sizes.
+- **Update:** ask your agent to add the mod again from the same link, or copy the folders again.
+- **Uninstall:** delete the two `workspace-save*` folders in `~/.config/herdr-app/mods/` and
+  their keys in `keys.json`. Your saves stay in `~/.local/state/herdr/plugins/workspace-save/`.
+
+## Limitations
+
+- In the app, commands run as soon as you reopen; the TUI types them and waits for Enter.
+- In the app, only Claude Code conversations resume. Other agents reopen fresh, with a warning.
+- Split sizes, mod panes (Files, Changes) and spaces on other machines aren't restored in the app yet.
+- Not saved anywhere: scrollback, environment variables, a command that already exited.
+- Claude Code deletes conversations after `cleanupPeriodDays` (default 30). Older saves open a
+  fresh `claude`.
 
 ## herdr TUI
 
 ![Saving a workspace, reopening it from the picker with every command armed, then pressing enter to resume the Claude session](docs/demo.gif)
 
-### Install
-
-Requires `python3` and `fzf`.
-
 ```bash
 herdr plugin install chandrasekharan98/herdr-workspace-save
 ```
 
-Run `herdr server reload-config` afterwards if a server is already up.
-
-For hacking on it locally, link the checkout instead:
-
-```bash
-herdr plugin link /path/to/herdr-workspace-save
-```
-
-### Use
-
-Add to `~/.config/herdr/config.toml`, then `herdr server reload-config`:
+**Requires:** `python3` and `fzf`. Bind keys in `~/.config/herdr/config.toml`, then run
+`herdr server reload-config`:
 
 ```toml
 [[keys.command]]
 key = "prefix+shift+s"
 type = "plugin_action"
-command = "workspace-save.save"
+command = "workspace-save.save"        # or workspace-save.save-close
 description = "save workspace"
 
 [[keys.command]]
@@ -105,67 +96,23 @@ command = "workspace-save.open"
 description = "open saved workspace"
 ```
 
-| Action | What it does |
-| --- | --- |
-| `workspace-save.save` | Save the focused workspace. Slug comes from its label. |
-| `workspace-save.save-close` | Save, then close the workspace. |
-| `workspace-save.open` | Open the picker overlay; enter reopens the selection. |
+Reopening rebuilds the tabs and splits and types each pane's command without running it, so
+you press Enter only where you want. Agents with a resume flag (claude, codex, opencode and
+more) resume their session. In the picker, `ctrl-x` deletes and `ctrl-z` undoes.
 
-Reopening rebuilds the tabs and splits, then **types** each pane's command into it without
-running it. You press enter in the panes you actually want. Reopening a six-agent workspace
-therefore costs nothing until you say so.
+Uninstall with `herdr plugin uninstall workspace-save`.
 
-In the picker, `ctrl-x` deletes the selected save and `ctrl-z` undoes it. There is no
-confirmation prompt, because a delete is not final: it moves the file to `workspaces/trash/`,
-which keeps it for 7 days. `ctrl-z` restores the most recent delete first.
+## Details
 
-![The picker: saved workspaces on the left, the selected save previewed on the right](docs/picker.png)
+<details>
+<summary>How agent sessions are found</summary>
 
-Run any manually with `herdr plugin action invoke <id> --plugin workspace-save`.
-`python3 wss.py list` prints the save directory and one line per save.
+**TUI:** Herdr's state integration reports each agent's session. Saving warns when an
+integration is missing (`herdr integration install <agent>`) or Herdr has none for that agent.
 
-## What gets captured
-
-Per pane, in this order:
-
-1. **Agent session.** In the TUI, Herdr already tracks a session ref for recognized agents
-   (`{source, agent, kind, value}`); it is stored verbatim and armed as a resume command.
-   In the app, Claude Code sessions only (see [Agent sessions](#agent-sessions)).
-2. **Foreground command.** Whatever the pane is running (from `pane.process-info` in the
-   TUI, `hc get`'s `foreground` in the app), TUI programs included, so `vim notes.md` and
-   `htop` come back as themselves. A pane sitting at a shell prompt records nothing: a
-   command that already exited is not recoverable. In the TUI a pipeline records only its
-   first stage, and saving warns which stages were dropped.
-3. **cwd**, always.
-
-In the app, each pane's visible screen is also saved, as text, for the preview only; it is
-not replayed on reopen. Anything on screen (a printed token, say) ends up in the save file.
-
-Not captured: scrollback, env (Herdr's layout export doesn't expose it; `env` is honoured on
-a TUI restore if you add it by hand), and anything a process holds only in memory.
-
-## Agent sessions
-
-Resuming an agent needs two things, and the plugin tells you which one is missing.
-
-**1. A session ref for it.**
-
-In the TUI, that comes from Herdr's state integration (`herdr integration status`). Agents
-Herdr detects but ships no integration for (currently `gemini`, `agy`, `cline`, `kiro`,
-`amp`, `maki`) can never be resumed; their panes reopen fresh. Saving warns per pane:
-
-```
-codex: integration not installed — run: herdr integration install codex
-pi: integration outdated (v6 < v8) — run: herdr integration install pi
-gemini: Herdr ships no state integration, sessions cannot be captured
-claude: no session id reported yet, pane will reopen fresh
-```
-
-In the app, Herdr doesn't say which conversation runs in a terminal. For Claude Code the mod
-reads `~/.claude/sessions/<pid>.json`, which Claude Code writes for every running session,
-using the terminal's foreground pid from `hc get`. That needs no setup. It is Claude Code's
-own file, not a documented interface, so there is an opt-in fallback: a `SessionStart` hook
-that records each terminal's session. Add it to `~/.claude/settings.json`:
+**App:** for Claude Code the mod reads `~/.claude/sessions/<pid>.json`, which Claude Code
+writes for each running session. That file isn't a documented interface, so there's an
+optional fallback, a `SessionStart` hook in `~/.claude/settings.json`:
 
 ```json
 {
@@ -177,69 +124,25 @@ that records each terminal's session. Add it to `~/.claude/settings.json`:
 }
 ```
 
-The hook is one `sh` line. Outside a herdr-core terminal (`$HC_TERMINAL_ID` unset) it does
-nothing. Inside one it appends a line to `~/.local/state/herdr/terminal-sessions.jsonl`:
+It appends one line per session to `~/.local/state/herdr/terminal-sessions.jsonl` and does
+nothing outside a Herdr terminal.
 
-```json
-{"terminal":"t7","agent":"claude","session_id":"c1ba9b75-…","cwd":"/src/api","at":1794429282}
-```
-
-The last line for a terminal wins. Other mods can read the same file. It adds about 7 ms
-to Claude Code's startup, which doesn't show above the run-to-run noise of `claude -p`
-(7.56 s without, 7.37 s with, 5 runs each).
-
-Other agents in the app are saved as their command line and reopen fresh, with a warning.
-
-**2. A resume command must be known** for that agent. Defaults match Herdr's own internal
-resume table: `--resume` for claude, codex (`codex resume`), grok, droid, devin, hermes,
-cursor (`cursor-agent`), qodercli; `--session` for pi, opencode, kimi, kilo;
-`--conversation` for agy; `--thread` for mastracode. Reopening warns when it can't resume:
-
-```
-copilot: no resume command known, opened fresh — add one to config.json
-claude 11c3d682: transcript deleted, opened fresh — raise cleanupPeriodDays
-mastracode: saved without a session id, opened fresh
-```
-
-`{ref}` is substituted with the agent's session id or path:
+**Resume commands** match Herdr's: `--resume` for claude, codex, grok, droid, devin, hermes,
+cursor, qodercli; `--session` for pi, opencode, kimi, kilo; `--conversation` for agy;
+`--thread` for mastracode. Override them in `$HERDR_PLUGIN_CONFIG_DIR/config.json`:
 
 ```json
 { "resume": { "claude": ["claude", "--resume", "{ref}"] } }
 ```
 
-Put overrides in `$HERDR_PLUGIN_CONFIG_DIR/config.json`
-(`herdr plugin config-dir workspace-save`). In the TUI, commands are armed, not run, so a
-wrong flag is visible in the pane before you press enter.
+</details>
 
-For Claude, a saved session whose transcript no longer exists on disk opens a bare `claude`
-instead of a resume that would only error. Claude Code deletes transcripts older than
-`cleanupPeriodDays` (default 30) at startup, so raise that in `~/.claude/settings.json` if you
-want month-old saved workspaces to still resume.
+<details>
+<summary>Save files</summary>
 
-### Where TUI warnings show up
-
-Herdr renders plugin stdout/stderr nowhere on screen, so warnings get their own overlay pane
-that stays open until you press enter:
-
-![A save that could not capture two agent sessions, and why](docs/warning.png)
-
-Reopening from the picker keeps that pane open the same way. A notification with the `request`
-sound fires alongside, and `herdr plugin log list --plugin workspace-save` has the raw text.
-A save with nothing to warn about opens no pane. The app shows the same warnings as a toast.
-
-## Where saves live
-
-Both use `~/.local/state/herdr/plugins/workspace-save/workspaces/<slug>.json`
-(`$HERDR_PLUGIN_STATE_DIR/workspaces/` in the TUI).
-
-If a saved `cwd` no longer exists (deleted worktree), the pane opens in your home folder;
-reopening warns which paths were missing, so a `--resume` in the wrong directory doesn't go
-unnoticed.
-
-Saving a workspace whose name matches an existing save overwrites it; there is no versioning.
-Rename the workspace first if you want two.
-
-### Format
+One JSON file per workspace in `~/.local/state/herdr/plugins/workspace-save/workspaces/`.
+Saving again overwrites it. Deletes go to `trash/` for 7 days. The files are hand-editable:
+drop a `command`, retarget a `cwd`, add `env`.
 
 ```json
 {
@@ -266,23 +169,17 @@ Rename the workspace first if you want two.
 }
 ```
 
-`version` is the format version; both targets refuse a file with another one. `direction` is
-`right` or `down`; the app saves its rows and columns as nested splits of this shape.
-Hand-editable: delete a `command` you don't want re-armed, add `env`, retarget a `cwd`.
+In the app, each pane also stores its screen text for the preview, so anything on screen
+ends up in the file.
 
-## How it's built
+</details>
 
-`wss.py` is the shared core. It lives in `app/mods/workspace-save/wss.py` so the app mod
-carries it, and the root `wss.py` is a symlink to it for the TUI plugin.
+<details>
+<summary>Development</summary>
 
-- The TUI runs it through `herdr-plugin.toml` and talks to the herdr server socket.
-- The app mods (`app/mods/workspace-save/main.js`, the dialog, and
-  `app/mods/workspace-save-now/main.js`, the save key) run its `app-*` commands through
-  `exec`. The preview is `wss.py app-preview`. Saving reads the split tree from herdr-core's `herdr-app` document
-  (`hc connect`, `doc.get`) and each terminal from `hc get`. Reopening runs
-  `herdr-app do space.new`, `tab.new`, and `pane.focus` + `terminal.open` for splits.
-
-## Development
+`wss.py` is the shared core. The TUI plugin runs it from the repo root (a symlink); the app
+mods run `app/mods/workspace-save/wss.py` through `exec`. [`app/RECIPE.md`](app/RECIPE.md)
+describes how the app half is built.
 
 ```bash
 python3 test_wss.py
@@ -290,10 +187,11 @@ herdr-app check app/mods/workspace-save
 herdr-app check app/mods/workspace-save-now
 ```
 
-The tests cover the pure parts: key stripping, saved-to-live pane pairing, missing cwds,
-command arming (stale transcript, unknown agent, no integration), the app's row/column to
-split conversion, the order of `herdr-app do` calls on restore, and the transcript tail
-(text messages only), and the preview's split tree with screens.
+</details>
+
+## Pairs well with
+
+[Herdr Easy Annotate](https://github.com/chandrasekharan98/herdr-ez-annotate).
 
 ## License
 
