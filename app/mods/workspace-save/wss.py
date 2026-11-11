@@ -216,8 +216,12 @@ def armed_command(pane, table, warn=None):
         if warn is not None:
             warn.append(msg)
 
-    if pane.get("command"):
-        return shlex.join(pane["command"])
+    cmd = pane.get("command")
+    if cmd:
+        # A program that sets its process title (npm, node) shows one argv string: "npm run dev".
+        if len(cmd) == 1 and " " in cmd[0] and not os.path.exists(cmd[0]):
+            return cmd[0]
+        return shlex.join(cmd)
 
     session = pane.get("agent")
     if not session:
@@ -619,12 +623,14 @@ def app_restore(name):
         args = launch_args(first_leaf(tab["root"]), table, warn)
         if space is None:
             made = app_do("space.new", {"name": doc["label"], "tab": tab.get("label"), **args})
-            space = made["space"]
+            space, first_tab = made["space"], made.get("tab")
         else:
             made = app_do("tab.new", {"space": space, "name": tab.get("label"), **args})
         build(tab["root"], made.get("pane") or pane_of(made["terminal"]), table, warn)
     if space:
         app_do("space.select", {"id": space})
+        if first_tab:  # tab.new leaves the last tab shown
+            app_do("tab.select", {"id": first_tab})
     warn = sorted(set(warn)) + [f"folder gone, opened in home: {c}" for c in sorted(set(gone))]
     print(json.dumps({"space": space, "label": doc["label"], "warnings": warn}))
 
@@ -652,6 +658,11 @@ def transcript_tail(ref, n=4, width=400):
     return out[-n:]
 
 
+def tilde(path):
+    home = os.path.expanduser("~")
+    return "~" + path[len(home):] if path and (path == home or path.startswith(home + "/")) else path
+
+
 def preview(name):
     """What reopening a save would start, pane by pane, with the Claude conversation's last words."""
     doc, table = load(name), resume_table()
@@ -662,7 +673,7 @@ def preview(name):
         agent = node.get("agent") or {}
         return {
             "type": "pane",
-            "cwd": node.get("cwd"),
+            "cwd": tilde(node.get("cwd")),
             "run": armed_command(node, table),
             "screen": node.get("screen"),
             "transcript": transcript_tail(agent["value"])

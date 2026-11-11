@@ -25,6 +25,8 @@ assert [p[1] for p in pairs] == ["w1:p1", "w1:p2"], pairs
 
 table = wss.DEFAULT_RESUME
 assert wss.armed_command(SAVED["first"], table) == "npm run dev"
+assert wss.armed_command({"command": ["npm run dev"]}, table) == "npm run dev"  # process title, one string
+import os; H = os.path.expanduser("~"); assert (wss.tilde(H + "/a"), wss.tilde(H + "x/a"), wss.tilde(None)) == ("~/a", H + "x/a", None)
 # Unknown session id: no transcript on disk, so resume is dropped rather than armed to fail.
 assert wss.armed_command(SAVED["second"], table) == "claude"
 assert wss.armed_command({"type": "pane", "cwd": "/tmp"}, table) is None

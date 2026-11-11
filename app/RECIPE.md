@@ -5,7 +5,6 @@ conversations) to a file, close it if you like, and reopen it later from a searc
 dialog. Saves are shared with the herdr TUI plugin of the same name, so a workspace saved
 in one opens in the other.
 
-<!-- TODO: preview.png, taken in an isolated herdr-app instance (no private terminals). -->
 ![Workspace Save](preview.png)
 
 ## What you see

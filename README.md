@@ -1,23 +1,27 @@
 # herdr-workspace-save
 
 Save a Herdr workspace (its layout, folders, agent sessions and running commands) and reopen
-it later, as it was. It works in both the **Herdr desktop app** and the **herdr TUI**, and
-both read the same saves.
+it later, as it was. There are two builds, one for the **Herdr desktop app** and one for the
+**herdr TUI**. They install differently but read and write the same saves, so a workspace
+saved in one opens in the other.
 
-<!-- TODO: app/preview.png, taken in an isolated herdr-app instance (no private terminals). -->
-
-| Herdr app | herdr TUI |
-| --- | --- |
-| ![Saved workspaces dialog in the Herdr app](app/preview.png) | ![Saving a workspace, reopening it from the picker with every command armed, then pressing enter to resume the Claude session](docs/demo.gif) |
+- [Herdr app](#herdr-app): a mod (`app/`), with a dialog that previews each save.
+- [herdr TUI](#herdr-tui): a plugin (repo root), with an fzf picker.
 
 ## Why
 
 Are you also guilty of using a ton of workspaces that you can't afford to close just yet? Doesn't the growing list ick your brain?
 Then this is the perfect plugin for you :D
 
-## Install
+## Herdr app
 
-### Herdr app
+![Saving a workspace, closing it, browsing saved workspaces with their previews, and reopening it with Claude Code resumed](app/demo.gif)
+
+![The Saved workspaces dialog: saves on the left, the selected one's tab drawn with its panes' screens on the right](app/preview.png)
+
+### Install
+
+Requires `herdr-app` with herdr-core (`hc`) on PATH, and `python3`.
 
 Paste into an agent running in Herdr:
 
@@ -33,29 +37,7 @@ The mods run `python3` and `hc` on your machine (through `exec`). They read and 
 outside their folder: `~/.local/state/herdr/plugins/workspace-save/` (the saves) and
 `~/.claude/sessions/` (read only, see [Agent sessions](#agent-sessions)).
 
-### herdr TUI
-
-```bash
-herdr plugin install chandrasekharan98/herdr-workspace-save
-```
-
-Run `herdr server reload-config` afterwards if a server is already up.
-
-For hacking on it locally, link the checkout instead:
-
-```bash
-herdr plugin link /path/to/herdr-workspace-save
-```
-
-## Requirements
-
-- Both: `python3`
-- herdr TUI: `fzf`
-- Herdr app: `herdr-app` with herdr-core (`hc`) on PATH
-
-## Using it
-
-### In the Herdr app
+### Use
 
 | Key | What it does |
 | --- | --- |
@@ -85,7 +67,27 @@ can't type a command without pressing enter, the way the TUI does.
 Not yet in the app: spaces on other machines, mod panes (Files, Changes) and split sizes.
 Splits come back in the right places, but not at their saved sizes.
 
-### In the herdr TUI
+## herdr TUI
+
+![Saving a workspace, reopening it from the picker with every command armed, then pressing enter to resume the Claude session](docs/demo.gif)
+
+### Install
+
+Requires `python3` and `fzf`.
+
+```bash
+herdr plugin install chandrasekharan98/herdr-workspace-save
+```
+
+Run `herdr server reload-config` afterwards if a server is already up.
+
+For hacking on it locally, link the checkout instead:
+
+```bash
+herdr plugin link /path/to/herdr-workspace-save
+```
+
+### Use
 
 Add to `~/.config/herdr/config.toml`, then `herdr server reload-config`:
 

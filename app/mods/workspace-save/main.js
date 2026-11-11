@@ -51,6 +51,7 @@ export default class WorkspaceSave extends View {
       if (r.code === 0) this.saves = JSON.parse(r.stdout);
       else this.note = r.stderr.trim();
       this.saves.sort((a, b) => b.saved_at.localeCompare(a.saved_at));
+      this.loaded = true;
       cx.notify();
     });
   }
@@ -209,7 +210,7 @@ export default class WorkspaceSave extends View {
               .child(div().text_color(t.dim).text_size(12).child(s.saved_at.replace("T", " ").slice(0, 16)))
               .child(div().id(`ws-del-${s.name}`).px(6).rounded(4).text_color(t.dim).hover((st) => st.text_color(t.blocked))
                 .on_click((_e, cx) => { cx.stop_propagation(); this.remove(cx, s); }).child("✕")))
-            : [div().p(10).text_color(t.muted).child(this.saves.length ? "No match." : "No saved workspaces yet.")]))
+            : [div().p(10).text_color(t.muted).child(this.saves.length ? "No match." : this.loaded ? "No saved workspaces yet." : "Loading…")]))
           .child(this.previewPane(t, rows.length ? shown : null)))
       .child(div().text_size(11).text_color(t.dim).child(this.note ||
         "Enter reopens · ctrl+x deletes · ctrl+z undoes · ctrl+s saves this space · ctrl+shift+s saves and closes · Esc"));
