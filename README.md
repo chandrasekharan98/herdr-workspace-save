@@ -1,5 +1,6 @@
 # Herdr Workspace Save
 
+[![Release](https://img.shields.io/github/v/release/chandrasekharan98/herdr-workspace-save)](https://github.com/chandrasekharan98/herdr-workspace-save/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Herdr app 0.1.15+](https://img.shields.io/badge/herdr--app-0.1.15%2B-6e56cf)
 ![herdr TUI](https://img.shields.io/badge/herdr-TUI-555)
@@ -58,7 +59,7 @@ workspace-save space menu items to my layout" ([how](app/RECIPE.md#optional-draw
 
 ## Update and uninstall
 
-- **Update:** ask your agent to add the mod again from the same link, or copy the folders again.
+- **Update:** an installed copy doesn't update itself. Watch [Releases](https://github.com/chandrasekharan98/herdr-workspace-save/releases), then ask your Herdr agent to add the mod again from the same link (or copy the folders again).
 - **Uninstall:** delete the two `workspace-save*` folders in `~/.config/herdr-app/mods/` and
   their keys in `keys.json`. Your saves stay in `~/.local/state/herdr/plugins/workspace-save/`.
 
