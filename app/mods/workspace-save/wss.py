@@ -592,6 +592,51 @@ def app_restore(name):
     print(json.dumps({"space": space, "label": doc["label"], "warnings": warn}))
 
 
+def transcript_tail(ref, n=4, width=400):
+    """Last n text messages of a Claude Code transcript. Read from disk only: no tokens spent."""
+    paths = glob.glob(os.path.expanduser(f"~/.claude/projects/*/{ref}.jsonl"))
+    if not paths:
+        return []
+    out = []
+    with open(paths[0]) as f:
+        for line in f:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if rec.get("type") not in ("user", "assistant") or rec.get("isMeta"):
+                continue
+            content = (rec.get("message") or {}).get("content")
+            if isinstance(content, list):  # tool calls and results carry no "text" part
+                content = "\n".join(p.get("text", "") for p in content if p.get("type") == "text")
+            text = (content or "").strip()
+            if text and not text.startswith("<"):  # <command-name>, <system-reminder>, ...
+                out.append({"role": rec["type"], "text": text[:width]})
+    return out[-n:]
+
+
+def preview(name):
+    """What reopening a save would start, pane by pane, with the Claude conversation's last words."""
+    doc, table = load(name), resume_table()
+
+    def leaves(node):
+        return leaves(node["first"]) + leaves(node["second"]) if node["type"] == "split" else [node]
+
+    tabs = []
+    for i, tab in enumerate(doc["tabs"], 1):
+        panes = []
+        for pane in leaves(tab["root"]):
+            agent = pane.get("agent") or {}
+            panes.append({
+                "cwd": pane.get("cwd"),
+                "run": armed_command(pane, table),
+                "transcript": transcript_tail(agent["value"])
+                if agent.get("agent") == "claude" and agent.get("kind") == "id" and agent.get("value") else [],
+            })
+        tabs.append({"label": tab.get("label") or str(i), "panes": panes})
+    print(json.dumps({"label": doc["label"], "saved_at": doc.get("saved_at"), "tabs": tabs}))
+
+
 def app_list():
     purge_trash()
     print(json.dumps([{"name": n, "label": l, "saved_at": ts, "tabs": t, "path": p}
@@ -602,6 +647,7 @@ COMMANDS = {
     "app-save": lambda: app_save(sys.argv[2]),
     "app-restore": lambda: app_restore(sys.argv[2]),
     "app-list": app_list,
+    "app-preview": lambda: preview(sys.argv[2]),
     "save": lambda: save(sys.argv[2] if len(sys.argv) > 2 else None),
     "save-close": save_and_close,
     "open": lambda: open_pane("picker"),

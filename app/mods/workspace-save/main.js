@@ -1,10 +1,12 @@
-// Saved workspaces: search, reopen, delete (ctrl+x, undo ctrl+z), save this space, save and close.
+// Saved workspaces: search, reopen, delete (ctrl+x, undo ctrl+z), save this space, save and close,
+// with a preview of what reopening starts. With props {role: "drawer"} (a layout's floating
+// block) it is a small drawer with two buttons instead.
 // wss.py beside this file does the work (the herdr TUI plugin runs the same file), so saves
 // from either one show up in both.
 
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
-import { exec, run, props, focused, theme, notify, closeOverlay, appHome } from "herdr";
+import { exec, run, props, focused, theme, notify, closeOverlay, appHome, placement } from "herdr";
 
 const wss = (...args) =>
   exec("python3", [`${appHome()}/mods/workspace-save/wss.py`, ...args], { timeout: 120000 });
@@ -29,7 +31,9 @@ async function saveSpace(space, andClose) {
 
 export default class WorkspaceSave extends View {
   init(_props, cx) {
+    if (props()?.role === "drawer") return (this.drawer = true);
     this.saves = [];
+    this.previews = {}; // "name@saved_at" -> preview JSON, or "loading"
     this.filter = "";
     this.at = 0;
     this.busy = null; // what's running, shown instead of the list
@@ -51,6 +55,52 @@ export default class WorkspaceSave extends View {
       this.saves.sort((a, b) => b.saved_at.localeCompare(a.saved_at));
       cx.notify();
     });
+  }
+
+  // Reads the save and the Claude transcript tail from disk: no agent runs, no tokens spent.
+  preview(cx, s) {
+    const key = s && `${s.name}@${s.saved_at}`;
+    if (!key || key in this.previews) return key && this.previews[key];
+    this.previews[key] = "loading";
+    cx.spawn(async (cx) => {
+      const r = await wss("app-preview", s.name);
+      this.previews[key] = r.code === 0 ? JSON.parse(r.stdout) : { error: r.stderr.trim() };
+      cx.notify();
+    });
+    return "loading";
+  }
+
+  previewPane(t, p) {
+    const box = v_flex().id("ws-preview").flex_1().min_w(0).min_h(0).overflow_y_scrollbar().gap(10).p(10)
+      .rounded(8).bg(t.background).text_size(12);
+    if (!p || p === "loading") return box.child(div().text_color(t.dim).child(p ? "Loading…" : ""));
+    if (p.error) return box.child(div().text_color(t.blocked).child(p.error));
+    return box.children(p.tabs.map((tab, i) => v_flex().gap(6)
+      .child(div().text_color(t.foreground).font_semibold().child(`Tab ${tab.label}`))
+      .children(tab.panes.map((pane) => v_flex().gap(3).pl(8).border_l_2().border_color(t.border)
+        .child(div().text_color(t.dim).truncate().child(pane.cwd ?? "~"))
+        .child(div().text_color(pane.run ? t.accent : t.dim).child(pane.run ? `$ ${pane.run}` : "shell"))
+        .children(pane.transcript.map((m) => h_flex().gap(6).items_start()
+          .child(div().flex_none().w(46).text_color(t.dim).child(m.role === "user" ? "You" : "Claude"))
+          .child(div().flex_1().min_w(0).text_color(t.muted).child(m.text))))))));
+  }
+
+  renderDrawer(t) {
+    const p = placement();
+    const right = p?.edge === "right";
+    const item = (id, icon, label, onClick) => {
+      const row = h_flex().id(id).gap(8).px(8).py(6).rounded(6).items_center().cursor_pointer()
+        .hover((s) => s.bg(t.hover)).on_click((_e, cx) => onClick(cx));
+      const parts = [svg(`mods/workspace-chrome/${icon}.svg`).size(15).flex_none().text_color(t.muted),
+        div().text_size(12.5).text_color(t.foreground).child(label)];
+      return row.children(right ? parts.reverse() : parts);
+    };
+    return v_flex().gap(2).p(2)
+      .child(item("ws-d-save", "archive", "Save this space", (cx) => {
+        const space = focused()?.space;
+        if (space) cx.spawn(async () => { await saveSpace(space, false); });
+      }))
+      .child(item("ws-d-open", "layers", "Saved workspaces…", () => run("mod.open", { name: "workspace-save" })));
   }
 
   rows() {
@@ -120,8 +170,10 @@ export default class WorkspaceSave extends View {
 
   render(cx) {
     const t = theme();
+    if (this.drawer) return this.renderDrawer(t);
     const rows = this.rows();
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
+    const shown = this.preview(cx, rows[this.at]);
     const button = (id, label, onClick) =>
       div().id(id).px(10).py(5).rounded(6).text_size(12).border_1().border_color(t.border)
         .text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
@@ -149,7 +201,7 @@ export default class WorkspaceSave extends View {
         .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)))
       .child(this.busy
         ? div().flex_1().text_color(t.muted).child(this.busy)
-        : v_flex().id("ws-list").flex_1().min_h(0).overflow_y_scrollbar().track_scroll(this.scroll).children(
+        : h_flex().flex_1().min_h(0).gap(10).items_stretch().child(v_flex().id("ws-list").w(340).flex_none().min_h(0).overflow_y_scrollbar().track_scroll(this.scroll).children(
           rows.length ? rows.map((s, i) =>
             h_flex().id(`ws-${s.name}`).px(10).py(7).gap(10).rounded(6).items_center().cursor_pointer()
               .bg(i === this.at ? t.selected : t.popover).hover((st) => st.bg(i === this.at ? t.selected : t.hover))
@@ -160,6 +212,7 @@ export default class WorkspaceSave extends View {
               .child(div().id(`ws-del-${s.name}`).px(6).rounded(4).text_color(t.dim).hover((st) => st.text_color(t.blocked))
                 .on_click((_e, cx) => { cx.stop_propagation(); this.remove(cx, s); }).child("✕")))
             : [div().p(10).text_color(t.muted).child(this.saves.length ? "No match." : "No saved workspaces yet.")]))
+          .child(this.previewPane(t, rows.length ? shown : null)))
       .child(div().text_size(11).text_color(t.dim).child(this.note ||
         "Enter reopens · ctrl+x deletes · ctrl+z undoes · ctrl+s saves this space · ctrl+shift+s saves and closes · Esc"));
   }

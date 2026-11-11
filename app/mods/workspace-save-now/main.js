@@ -1,5 +1,5 @@
-// Saves the shown space straight away (ctrl-b shift-s): a key reaches a mod only through
-// mod.open, so this tiny popup exists to run the save, then closes itself.
+// Saves a space straight away (ctrl-b shift-s, or a space's right-click menu): a key reaches a
+// mod only through mod.open, so this tiny popup exists to run the save, then closes itself.
 
 import { View, div } from "gpui-kit";
 import { exec, run, props, focused, theme, notify, closeOverlay, appHome } from "herdr";
@@ -24,11 +24,11 @@ async function saveSpace(space, andClose) {
 
 export default class WorkspaceSaveNow extends View {
   init(_props, cx) {
-    const { overlay } = props() ?? {};
-    const space = focused()?.space;
+    // props: {space?, close?} from a space's right-click menu; a key saves the shown space.
+    const { overlay, space = focused()?.space, close = false } = props() ?? {};
     if (!overlay) return; // `herdr-app check`: nothing to save
     cx.spawn(async () => {
-      try { if (space) await saveSpace(space, false); } finally { closeOverlay(overlay); }
+      try { if (space) await saveSpace(space, close); } finally { closeOverlay(overlay); }
     });
   }
 

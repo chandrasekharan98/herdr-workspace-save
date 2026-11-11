@@ -52,7 +52,7 @@ CWDS = {"type": "split", "direction": "down", "ratio": 0.5,
         "second": {"type": "pane", "cwd": "/no/such/dir"}}
 assert wss.missing_cwds(CWDS, []) == ["/no/such/dir"]
 
-import os, tempfile, time
+import json, os, tempfile, time
 os.environ["HERDR_PLUGIN_STATE_DIR"] = tempfile.mkdtemp()
 for name in ("a", "b"):
     open(os.path.join(wss.state_dir(), name + ".json"), "w").write("{}")
@@ -91,5 +91,23 @@ assert [(c, a.get("pane"), a.get("place"), a.get("folder")) for c, a in calls] =
 assert calls[1][1]["argv"] == ["claude"], calls  # stale transcript -> fresh claude
 assert wss.launch_args({"type": "pane", "cwd": "/", "command": ["npm", "run", "dev"]}, table, []) == \
     {"folder": "/", "argv": ["npm", "run", "dev"]}
+
+# Preview: the transcript tail keeps text messages only (no tool results, meta or <tags>).
+home = tempfile.mkdtemp()
+os.makedirs(os.path.join(home, ".claude/projects/x"))
+with open(os.path.join(home, ".claude/projects/x/s1.jsonl"), "w") as f:
+    for rec in [
+        {"type": "user", "message": {"content": "<command-name>/clear</command-name>"}},
+        {"type": "user", "isMeta": True, "message": {"content": "meta"}},
+        {"type": "user", "message": {"content": "fix the bug"}},
+        {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read"}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "..."}]}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "Fixed."}]}},
+    ]:
+        f.write(json.dumps(rec) + "\n")
+os.environ["HOME"] = home
+assert wss.transcript_tail("s1") == [{"role": "user", "text": "fix the bug"},
+                                     {"role": "assistant", "text": "Fixed."}], wss.transcript_tail("s1")
+assert wss.transcript_tail("nope") == []
 
 print("ok")

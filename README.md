@@ -67,6 +67,18 @@ deletes the selected save and `ctrl+z` undoes it. `ctrl+s` saves the space under
 `ctrl+shift+s` saves it and closes the space; the two buttons at the top do the same. Esc
 closes it.
 
+Beside the list, a preview shows what reopening the selected save starts: each tab and pane,
+its folder and command, and for Claude Code panes the last few messages of the conversation.
+The preview reads the save and Claude's transcript files from disk. It runs no agent, so it
+spends no tokens. Other agents show their command only, for now.
+
+Optional, in your own layout (see `app/RECIPE.md`, "Optional: drawer and space menu"): a
+small drawer at the left edge of the terminals with "Save this space" and "Saved
+workspaces…", and "Save workspace", "Save and close" and "Open saved workspace…" in a
+space's right-click menu. Shipped layouts and mods can't be changed and a mod can't add
+items to another mod's menu, so these need clones of the `spaces` and `menu` mods. To add
+them, ask your agent: "add the workspace-save drawer and space menu items to my layout".
+
 Results and warnings show as toasts. Reopening runs each pane's command at once: the app
 can't type a command without pressing enter, the way the TUI does.
 
@@ -259,9 +271,9 @@ Hand-editable: delete a `command` you don't want re-armed, add `env`, retarget a
 carries it, and the root `wss.py` is a symlink to it for the TUI plugin.
 
 - The TUI runs it through `herdr-plugin.toml` and talks to the herdr server socket.
-- The app mods (`app/mods/workspace-save/main.js`, the dialog, and
+- The app mods (`app/mods/workspace-save/main.js`, the dialog and drawer, and
   `app/mods/workspace-save-now/main.js`, the save key) run its `app-*` commands through
-  `exec`. Saving reads the split tree from herdr-core's `herdr-app` document
+  `exec`. The preview is `wss.py app-preview`. Saving reads the split tree from herdr-core's `herdr-app` document
   (`hc connect`, `doc.get`) and each terminal from `hc get`. Reopening runs
   `herdr-app do space.new`, `tab.new`, and `pane.focus` + `terminal.open` for splits.
 
@@ -275,7 +287,8 @@ herdr-app check app/mods/workspace-save-now
 
 The tests cover the pure parts: key stripping, saved-to-live pane pairing, missing cwds,
 command arming (stale transcript, unknown agent, no integration), the app's row/column to
-split conversion, and the order of `herdr-app do` calls on restore.
+split conversion, the order of `herdr-app do` calls on restore, and the transcript tail
+(text messages only) in the preview.
 
 ## License
 
