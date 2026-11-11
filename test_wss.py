@@ -110,4 +110,17 @@ assert wss.transcript_tail("s1") == [{"role": "user", "text": "fix the bug"},
                                      {"role": "assistant", "text": "Fixed."}], wss.transcript_tail("s1")
 assert wss.transcript_tail("nope") == []
 
+# Preview keeps each tab's split tree, with the screen captured at save time on its panes.
+import io, contextlib
+wss.write_save("pv", [{"label": "1", "root": {"type": "split", "direction": "right", "ratio": 0.5,
+    "first": {"type": "pane", "cwd": "/", "command": ["btop"], "screen": {"text": "CPU", "cols": 80, "rows": 24}},
+    "second": {"type": "pane", "cwd": "/"}}}])
+out = io.StringIO()
+with contextlib.redirect_stdout(out):
+    wss.preview("pv")
+root = json.loads(out.getvalue())["tabs"][0]["root"]
+assert root["direction"] == "right" and root["first"]["run"] == "btop", root
+assert root["first"]["screen"]["text"] == "CPU" and root["second"]["screen"] is None, root
+assert "screen" not in wss.layout_only(root["first"])
+
 print("ok")

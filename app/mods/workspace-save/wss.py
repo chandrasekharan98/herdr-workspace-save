@@ -479,14 +479,51 @@ def claude_session(pid, terminal):
     return found
 
 
+def tty_foreground(pid):
+    """The process the terminal's tty is actually running. hc's foreground stays on the shell
+    for some programs (btop), so ask the kernel: the shell's tpgid is the foreground group."""
+    try:
+        tpgid = int(open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()[5])
+        if tpgid <= 0 or tpgid == pid:
+            return None
+        argv = open(f"/proc/{tpgid}/cmdline", "rb").read().decode(errors="replace").split("\0")[:-1]
+        if not argv:
+            return None
+        fg = {"argv": argv, "name": os.path.basename(argv[0]), "pid": tpgid}
+        try:
+            fg["cwd"] = os.readlink(f"/proc/{tpgid}/cwd")
+        except OSError:  # setcap programs like btop hide it; the shell's cwd stands in
+            pass
+        return fg
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def screen_text(address):
+    """The terminal's screen as text, for the preview. Trailing blank lines dropped."""
+    r = subprocess.run(["hc", "read", address, "--json"], capture_output=True, text=True)
+    try:
+        lines = json.loads(r.stdout).get("text", "").split("\n")
+    except ValueError:
+        return None
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(line.rstrip() for line in lines)
+
+
 def capture_terminal(address, warn, where):
     t = run_json(["hc", "get", address, "--json"])
     fg = t.get("foreground") or {}
+    if (not fg or fg.get("name") in SHELLS) and (fg.get("pid") or t.get("pid")):
+        fg = tty_foreground(fg.get("pid") or t["pid"]) or fg
     pane = {"type": "pane"}
     if fg.get("cwd") or t.get("cwd"):
         pane["cwd"] = fg.get("cwd") or t["cwd"]
     if t.get("name"):
         pane["label"] = t["name"]
+    screen = screen_text(address)
+    if screen:
+        pane["screen"] = {"text": screen, "cols": t.get("cols"), "rows": t.get("rows")}
     reported = (t.get("status") or {}).get("app")
     agent = "claude" if fg.get("name") == "claude" else APP_AGENTS.get(reported, reported)
     if agent == "claude":
@@ -619,21 +656,21 @@ def preview(name):
     """What reopening a save would start, pane by pane, with the Claude conversation's last words."""
     doc, table = load(name), resume_table()
 
-    def leaves(node):
-        return leaves(node["first"]) + leaves(node["second"]) if node["type"] == "split" else [node]
+    def shown(node):
+        if node["type"] == "split":
+            return {**node, "first": shown(node["first"]), "second": shown(node["second"])}
+        agent = node.get("agent") or {}
+        return {
+            "type": "pane",
+            "cwd": node.get("cwd"),
+            "run": armed_command(node, table),
+            "screen": node.get("screen"),
+            "transcript": transcript_tail(agent["value"])
+            if agent.get("agent") == "claude" and agent.get("kind") == "id" and agent.get("value") else [],
+        }
 
-    tabs = []
-    for i, tab in enumerate(doc["tabs"], 1):
-        panes = []
-        for pane in leaves(tab["root"]):
-            agent = pane.get("agent") or {}
-            panes.append({
-                "cwd": pane.get("cwd"),
-                "run": armed_command(pane, table),
-                "transcript": transcript_tail(agent["value"])
-                if agent.get("agent") == "claude" and agent.get("kind") == "id" and agent.get("value") else [],
-            })
-        tabs.append({"label": tab.get("label") or str(i), "panes": panes})
+    tabs = [{"label": tab.get("label") or str(i), "root": shown(tab["root"])}
+            for i, tab in enumerate(doc["tabs"], 1)]
     print(json.dumps({"label": doc["label"], "saved_at": doc.get("saved_at"), "tabs": tabs}))
 
 

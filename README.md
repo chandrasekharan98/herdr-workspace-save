@@ -67,10 +67,10 @@ deletes the selected save and `ctrl+z` undoes it. `ctrl+s` saves the space under
 `ctrl+shift+s` saves it and closes the space; the two buttons at the top do the same. Esc
 closes it.
 
-Beside the list, a preview shows what reopening the selected save starts: each tab and pane,
-its folder and command, and for Claude Code panes the last few messages of the conversation.
-The preview reads the save and Claude's transcript files from disk. It runs no agent, so it
-spends no tokens. Other agents show their command only, for now.
+Beside the list, a preview shows each tab of the selected save as it looked: its splits in
+place, and in each pane its folder, the command reopening runs, and the screen text captured
+when you saved (any program: agents, `btop`, editors). It's text, so colors aren't kept. The
+preview only reads the save from disk. It runs no agent, so it spends no tokens.
 
 Optional, in your own layout (see `app/RECIPE.md`, "Optional: space menu"): "Save
 workspace", "Save and close" and "Open saved workspace…" when you right-click a space, and
@@ -135,6 +135,9 @@ Per pane, in this order:
    command that already exited is not recoverable. In the TUI a pipeline records only its
    first stage, and saving warns which stages were dropped.
 3. **cwd**, always.
+
+In the app, each pane's visible screen is also saved, as text, for the preview only; it is
+not replayed on reopen. Anything on screen (a printed token, say) ends up in the save file.
 
 Not captured: scrollback, env (Herdr's layout export doesn't expose it; `env` is honoured on
 a TUI restore if you add it by hand), and anything a process holds only in memory.
@@ -288,7 +291,7 @@ herdr-app check app/mods/workspace-save-now
 The tests cover the pure parts: key stripping, saved-to-live pane pairing, missing cwds,
 command arming (stale transcript, unknown agent, no integration), the app's row/column to
 split conversion, the order of `herdr-app do` calls on restore, and the transcript tail
-(text messages only) in the preview.
+(text messages only), and the preview's split tree with screens.
 
 ## License
 

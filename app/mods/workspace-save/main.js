@@ -5,7 +5,7 @@
 
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
-import { exec, run, props, focused, theme, notify, closeOverlay, appHome } from "herdr";
+import { exec, run, props, focused, theme, notify, closeOverlay, appHome, settings } from "herdr";
 
 const wss = (...args) =>
   exec("python3", [`${appHome()}/mods/workspace-save/wss.py`, ...args], { timeout: 120000 });
@@ -55,7 +55,7 @@ export default class WorkspaceSave extends View {
     });
   }
 
-  // Reads the save and the Claude transcript tail from disk: no agent runs, no tokens spent.
+  // Reads the save (with the screens captured when saving) from disk: no agent runs, no tokens spent.
   preview(cx, s) {
     const key = s && `${s.name}@${s.saved_at}`;
     if (!key || key in this.previews) return key && this.previews[key];
@@ -68,19 +68,38 @@ export default class WorkspaceSave extends View {
     return "loading";
   }
 
+  // A save's tab drawn as it was: its splits at their saved ratios, each pane showing the
+  // screen text captured at save time, scaled to fit.
+  paneTree(t, node, w, id) {
+    if (node.type === "split") {
+      const right = node.direction === "right", gap = 3;
+      const w1 = right ? (w - gap) * node.ratio : w, w2 = right ? w - gap - w1 : w;
+      return (right ? h_flex() : v_flex()).gap(gap).items_stretch()
+        .child(this.paneTree(t, node.first, w1, `${id}a`)).child(this.paneTree(t, node.second, w2, `${id}b`));
+    }
+    const caption = div().h(16).flex_none().px(6).text_size(10).truncate()
+      .text_color(node.run ? t.accent : t.dim).child([node.cwd ?? "~", node.run ? `$ ${node.run}` : "shell"].join("  ·  "));
+    const box = v_flex().id(id).w(w).flex_none().overflow_hidden().rounded(4).border_1().border_color(t.border).bg(t.background).child(caption);
+    const sc = node.screen;
+    if (!sc) // saved before screens were captured: the conversation's last words, if any
+      return box.child(v_flex().px(6).pb(4).gap(2).text_size(11).children(node.transcript.map((m) =>
+        div().text_color(t.muted).truncate().child(`${m.role === "user" ? "You" : "Claude"}: ${m.text}`))));
+    const font = Math.min(11, (w - 8) / ((sc.cols || 80) * 0.6)), line = font * 1.2;
+    const lines = sc.text.split("\n");
+    while (lines.length < (sc.rows || 0)) lines.push(""); // keep the pane's height, so splits keep their shape
+    return box.child(v_flex().px(3).font_family(settings().font_family ?? "JetBrains Mono").text_size(font).text_color(t.muted)
+      .children(lines.map((l) => div().h(line).line_height(`${line}px`).whitespace_nowrap().overflow_hidden().child(l || " "))));
+  }
+
   previewPane(t, p) {
-    const box = v_flex().id("ws-preview").flex_1().min_w(0).min_h(0).overflow_y_scrollbar().gap(10).p(10)
-      .rounded(8).bg(t.background).text_size(12);
+    const box = v_flex().id("ws-preview").flex_1().min_w(0).min_h(0).overflow_y_scrollbar().gap(12).p(10)
+      .rounded(8).bg(t.surface ?? t.background).text_size(12);
     if (!p || p === "loading") return box.child(div().text_color(t.dim).child(p ? "Loading…" : ""));
     if (p.error) return box.child(div().text_color(t.blocked).child(p.error));
-    return box.children(p.tabs.map((tab, i) => v_flex().gap(6)
+    // ponytail: width is the dialog's fixed layout (920 - padding - 340 list - scrollbar), not measured.
+    return box.children(p.tabs.map((tab, i) => v_flex().gap(5)
       .child(div().text_color(t.foreground).font_semibold().child(`Tab ${tab.label}`))
-      .children(tab.panes.map((pane) => v_flex().gap(3).pl(8).border_l_2().border_color(t.border)
-        .child(div().text_color(t.dim).truncate().child(pane.cwd ?? "~"))
-        .child(div().text_color(pane.run ? t.accent : t.dim).child(pane.run ? `$ ${pane.run}` : "shell"))
-        .children(pane.transcript.map((m) => h_flex().gap(6).items_start()
-          .child(div().flex_none().w(46).text_color(t.dim).child(m.role === "user" ? "You" : "Claude"))
-          .child(div().flex_1().min_w(0).text_color(t.muted).child(m.text))))))));
+      .child(this.paneTree(t, tab.root, 500, `pv${i}`))));
   }
 
   rows() {

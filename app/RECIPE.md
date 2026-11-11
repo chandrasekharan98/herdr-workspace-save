@@ -15,11 +15,12 @@ in one opens in the other.
   the right: "Save this space" and "Save and close". Below it, a 36px search field with an
   `accent` border. Then the list, newest save first: one 12.8px row per save with its name,
   "N tabs", the save time (`YYYY-MM-DD HH:MM`, UTC) and a ✕. The selected row is on
-  `selected`. The list is 340px wide; beside it, on `background`, a preview of the selected
-  save: per tab, per pane its folder (`dim`), the command reopening runs (`$ claude --resume …`
-  in `accent`, or "shell") and, for a Claude Code pane, the last four messages of its
-  conversation ("You" / "Claude", 12px, `muted`, cut at 400 characters). A one-line hint in
-  11px `dim` at the bottom.
+  `selected`. The list is 340px wide; beside it, on `surface`, a preview of the selected
+  save: each tab drawn as it was, its splits at their saved ratios, each pane a bordered box
+  with a 10px caption (folder · the command reopening runs, in `accent`, or "shell") over the
+  screen text captured when it was saved, in the terminal font, scaled to the pane's width.
+  Saves made before screens were captured show the Claude conversation's last messages
+  instead. A one-line hint in 11px `dim` at the bottom.
 - **Right-click menus** (optional, need the person's own `spaces` and `menu` clones): on a
   space, "Save workspace", "Save and close" and "Open saved workspace…" above "Close"; on
   the empty part of the spaces panel, "New space" and "Open saved workspace…".
@@ -30,9 +31,10 @@ in one opens in the other.
 
 ## How it behaves
 
-- The preview loads when a row is selected. It only reads the save and
-  `~/.claude/projects/*/<session id>.jsonl` from disk: no agent runs, no tokens are spent.
-  Other agents show their command but no conversation.
+- The preview loads when a row is selected. It only reads the save (and, for older saves,
+  `~/.claude/projects/*/<session id>.jsonl`) from disk: no agent runs, no tokens are spent.
+  Screens are text, not pixels: colors aren't kept, every tab is covered, the window isn't
+  touched.
 - Typing filters by name. Up/Down move, Enter or a click reopens: a new space with the
   saved name, each tab with its name, each split in its direction, each terminal in its
   saved folder running its saved command. Claude Code panes run `claude --resume <id>`.
@@ -55,11 +57,14 @@ in one opens in the other.
   `mod.open` from `keys.json`.
 - The save popup takes props `{space?, close?}` (default: the focused space, no close).
 - Both run `python3 ~/.config/herdr-app/mods/workspace-save/wss.py` through `exec`:
-  `app-list` (JSON list), `app-preview <name>` (tabs, panes, `run`, `transcript`), `app-save <space id>` (prints `{path, label, warnings}`),
+  `app-list` (JSON list), `app-preview <name>` (each tab's split tree; panes carry `run`, `screen`, `transcript`), `app-save <space id>` (prints `{path, label, warnings}`),
   `app-restore <name>` (prints `{space, label, warnings}`), `delete <name>`, `undelete`.
   `wss.py` is the herdr TUI plugin's script; the `app-*` commands are its Herdr app half.
 - Capture: `hc connect` with `doc.get {name: "herdr-app"}` gives each tab's row/column tree
-  of terminal blocks; `hc get <t> --json` gives each terminal's `foreground` argv, cwd and pid.
+  of terminal blocks; `hc get <t> --json` gives each terminal's `foreground` argv, cwd and pid,
+  and `hc read <t> --json` its screen text (stored as `screen {text, cols, rows}`). When
+  `foreground` is a shell or missing (it is for btop), the shell's tty foreground group
+  (`/proc/<pid>/stat`, `tpgid`) names the program.
   A row becomes a `right` split and a column a `down` split, folded into the TUI's binary
   `{type: "split", direction, ratio, first, second}` tree. Claude's session id comes from
   `~/.claude/sessions/<foreground pid>.json` (`sessionId`), else the hook's map (below).
@@ -124,4 +129,4 @@ Clones don't get Herdr's updates to those mods: re-clone and re-apply after an u
 - `ctrl-b alt-w`, Enter on that save: a new space with the same tabs and split, the Claude
   pane resuming the same conversation.
 - `ctrl+x` removes a row; `ctrl+z` brings it back.
-- Selecting a save with a Claude pane shows its last messages in the preview.
+- Selecting a save shows each tab's panes in their split, with the screens as they were.
