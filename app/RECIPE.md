@@ -20,11 +20,9 @@ in one opens in the other.
   in `accent`, or "shell") and, for a Claude Code pane, the last four messages of its
   conversation ("You" / "Claude", 12px, `muted`, cut at 400 characters). A one-line hint in
   11px `dim` at the bottom.
-- **Drawer** (optional, a floating block of the person's layout): two rows, an `archive` icon
-  with "Save this space" and a `layers` icon with "Saved workspaces…". Only the icons peek
-  out (34px) until it's hovered.
-- **Space right-click menu** (optional, needs the person's own `spaces` and `menu` clones):
-  "Save workspace", "Save and close" and "Open saved workspace…" above "Close".
+- **Right-click menus** (optional, need the person's own `spaces` and `menu` clones): on a
+  space, "Save workspace", "Save and close" and "Open saved workspace…" above "Close"; on
+  the empty part of the spaces panel, "New space" and "Open saved workspace…".
 - **Saving workspace…** popup (`ctrl-b shift-s`): 260×44 at the top, for as long as the save
   takes (well under a second), then gone.
 - Results are toasts: "Saved 'name'" with the file path, "Reopened 'name'", or a warning
@@ -51,9 +49,7 @@ in one opens in the other.
 
 ## Built from
 
-- `mods/workspace-save/` (`place: "none"`, overlay `dialog` 920 × 0.75): the dialog; with
-  props `{role: "drawer"}` it draws the drawer instead, reading `placement()` to mirror its
-  rows on the right edge.
+- `mods/workspace-save/` (`place: "none"`, overlay `dialog` 920 × 0.75): the dialog.
   `mods/workspace-save-now/` (`place: "none"`, overlay `popup` at top, 260×44): runs one save
   of `focused().space`, then `closeOverlay(props().overlay)`. Both are opened only by
   `mod.open` from `keys.json`.
@@ -75,24 +71,30 @@ in one opens in the other.
   appends `{"terminal":$HC_TERMINAL_ID,"agent":"claude","session_id","cwd","at"}` to
   `~/.local/state/herdr/terminal-sessions.jsonl`.
 
-## Optional: drawer and space menu
+<a id="optional-drawer-and-space-menu"></a>
+
+## Optional: space menu
 
 These live in the person's own layout, so they can't ship as files. Shipped layouts and mods
 are read-only and a shared mod can't add items to another mod's menu. Add them only when
 asked, in a layout the person already owns (`layout.clone {name: "main"}` first if they
 don't have one):
 
-1. Drawer: on the layout's tab block (`content: {tab: "active"}`) add
-   `"floating": [{"id": "workspace-save-drawer", "content": {"mod": "workspace-save", "props": {"role": "drawer"}}, "edge": "left", "align": "end", "peek": 34}]`.
-2. Space menu: `mod.clone {name: "spaces", as: "<x>"}` and `mod.clone {name: "menu", as: "<y>"}`
-   (or use the person's existing clones). Point the layout's spaces block at `<x>`. In `<x>`,
-   open `<y>` in place of `menu` for the space right-click (220×320, room for three more
-   items). In `<y>`, `case "space":`, insert before "Close":
+1. `mod.clone {name: "spaces", as: "<x>"}` and `mod.clone {name: "menu", as: "<y>"}` (or use
+   the person's existing clones). Point the layout's spaces block at `<x>`.
+2. Space right-click: in `<x>`, open `<y>` in place of `menu` (220×320, room for three more
+   items) and call `cx.stop_propagation()` first, so the panel's menu doesn't open too. In
+   `<y>`, `case "space":`, insert before "Close":
    `["Save workspace", "workspace-save", {space: tg.id}]`,
    `["Save and close", "workspace-save", {space: tg.id, close: true}]`,
    `["Open saved workspace…", "mod.open", {name: "workspace-save"}]`; and in `choose`,
    `if (it[1] === "workspace-save") openOverlay({mod: "workspace-save-now", kind: "popup", at: "top", width: 260, height: 44, props: it[2]})`.
-   Clones don't get Herdr's updates to those mods: re-clone and re-apply after an update.
+3. Panel right-click: on `<x>`'s root element add
+   `.id("spaces-panel").on_mouse_down("right", () => openOverlay({mod: "<y>", kind: "popup", width: 220, height: 120, props: {tab: "spaces"}}))`,
+   and in `<y>` add `case "spaces":` returning `["New space", "space.new", {}]` and
+   `["Open saved workspace…", "mod.open", {name: "workspace-save"}]`.
+
+Clones don't get Herdr's updates to those mods: re-clone and re-apply after an update.
 
 ## Watch out
 

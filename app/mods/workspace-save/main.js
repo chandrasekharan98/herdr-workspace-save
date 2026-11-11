@@ -1,12 +1,11 @@
 // Saved workspaces: search, reopen, delete (ctrl+x, undo ctrl+z), save this space, save and close,
-// with a preview of what reopening starts. With props {role: "drawer"} (a layout's floating
-// block) it is a small drawer with two buttons instead.
+// with a preview of what reopening starts.
 // wss.py beside this file does the work (the herdr TUI plugin runs the same file), so saves
 // from either one show up in both.
 
-import { View, div, svg } from "gpui-kit";
+import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
-import { exec, run, props, focused, theme, notify, closeOverlay, appHome, placement } from "herdr";
+import { exec, run, props, focused, theme, notify, closeOverlay, appHome } from "herdr";
 
 const wss = (...args) =>
   exec("python3", [`${appHome()}/mods/workspace-save/wss.py`, ...args], { timeout: 120000 });
@@ -31,7 +30,6 @@ async function saveSpace(space, andClose) {
 
 export default class WorkspaceSave extends View {
   init(_props, cx) {
-    if (props()?.role === "drawer") return (this.drawer = true);
     this.saves = [];
     this.previews = {}; // "name@saved_at" -> preview JSON, or "loading"
     this.filter = "";
@@ -83,24 +81,6 @@ export default class WorkspaceSave extends View {
         .children(pane.transcript.map((m) => h_flex().gap(6).items_start()
           .child(div().flex_none().w(46).text_color(t.dim).child(m.role === "user" ? "You" : "Claude"))
           .child(div().flex_1().min_w(0).text_color(t.muted).child(m.text))))))));
-  }
-
-  renderDrawer(t) {
-    const p = placement();
-    const right = p?.edge === "right";
-    const item = (id, icon, label, onClick) => {
-      const row = h_flex().id(id).gap(8).px(8).py(6).rounded(6).items_center().cursor_pointer()
-        .hover((s) => s.bg(t.hover)).on_click((_e, cx) => onClick(cx));
-      const parts = [svg(`mods/workspace-chrome/${icon}.svg`).size(15).flex_none().text_color(t.muted),
-        div().text_size(12.5).text_color(t.foreground).child(label)];
-      return row.children(right ? parts.reverse() : parts);
-    };
-    return v_flex().gap(2).p(2)
-      .child(item("ws-d-save", "archive", "Save this space", (cx) => {
-        const space = focused()?.space;
-        if (space) cx.spawn(async () => { await saveSpace(space, false); });
-      }))
-      .child(item("ws-d-open", "layers", "Saved workspaces…", () => run("mod.open", { name: "workspace-save" })));
   }
 
   rows() {
@@ -170,7 +150,6 @@ export default class WorkspaceSave extends View {
 
   render(cx) {
     const t = theme();
-    if (this.drawer) return this.renderDrawer(t);
     const rows = this.rows();
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
     const shown = this.preview(cx, rows[this.at]);
