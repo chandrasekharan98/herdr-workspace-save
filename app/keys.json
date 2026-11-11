@@ -1,0 +1,6 @@
+{
+  "global": {
+    "ctrl-b shift-s": "mod.open:workspace-save-now",
+    "ctrl-b alt-w": "mod.open:workspace-save"
+  }
+}

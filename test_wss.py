@@ -65,4 +65,31 @@ wss.purge_trash()
 wss.undelete()
 assert [e[0] for e in wss.entries()] == ["b"], wss.entries()
 
+# Herdr app: a row of three (weights 1:1:2) whose last cell is a column; mod panes are dropped.
+APP_TAB = {"type": "row", "children": [
+    {"type": "block", "size": {"weight": 1.0}, "content": {"terminal": "t1"}},
+    {"type": "block", "size": {"weight": 1.0}, "content": {"terminal": "t2"}},
+    {"type": "column", "size": {"weight": 2.0}, "children": [
+        {"type": "block", "content": {"terminal": "t3"}},
+        {"type": "block", "content": {"mod": "files"}}]}]}
+warn = []
+tree = wss.capture_tree(APP_TAB, warn, "s / 1", leaf=lambda t, w, where: {"type": "pane", "cwd": "/" + t})
+assert tree == {"type": "split", "direction": "right", "ratio": 0.25, "first": {"type": "pane", "cwd": "/t1"},
+                "second": {"type": "split", "direction": "right", "ratio": 0.3333,
+                           "first": {"type": "pane", "cwd": "/t2"}, "second": {"type": "pane", "cwd": "/t3"}}}, tree
+assert warn == ["s / 1: files pane not saved"], warn
+
+# Restore drives herdr-app: one terminal.open per split, beside the pane that holds its first branch.
+calls = []
+def fake_do(command, args):
+    calls.append((command, args))
+    return {"space": "sp1", "tab": "tb1", "terminal": f"t{len(calls)}", "pane": f"p{len(calls)}"}
+wss.app_do = fake_do
+wss.build(SAVED, "p0", table, [])
+assert [(c, a.get("pane"), a.get("place"), a.get("folder")) for c, a in calls] == [
+    ("pane.focus", "p0", None, None), ("terminal.open", None, "down", None)], calls
+assert calls[1][1]["argv"] == ["claude"], calls  # stale transcript -> fresh claude
+assert wss.launch_args({"type": "pane", "cwd": "/", "command": ["npm", "run", "dev"]}, table, []) == \
+    {"folder": "/", "argv": ["npm", "run", "dev"]}
+
 print("ok")

@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .demo-state/
+gpui-kit.d.ts
+jsconfig.json
