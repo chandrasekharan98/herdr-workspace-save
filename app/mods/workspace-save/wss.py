@@ -615,8 +615,33 @@ def build(node, pane, table, warn):
     build(node["second"], made.get("pane") or pane_of(made["terminal"]), table, warn)
 
 
+def running_program(address):
+    """Name of what a terminal runs beyond its shell, or None for a bare prompt."""
+    t = run_json(["hc", "get", address, "--json"])
+    fg = t.get("foreground") or {}
+    if (not fg or fg.get("name") in SHELLS) and (fg.get("pid") or t.get("pid")):
+        fg = tty_foreground(fg.get("pid") or t["pid"]) or fg
+    return fg.get("name") if fg.get("name") not in SHELLS else None
+
+
+def clear_stale_spaces(label):
+    """After a reboot the app brings a space back with bare shells. Restoring beside it would
+    leave two spaces with one name, and agents addressing each other by name get the wrong one."""
+    for space in run_json(["herdr-app", "ls"])["spaces"]:
+        if space.get("name") != label:
+            continue
+        busy = {t["terminal"]: running_program(t["terminal"])
+                for tab in space["tabs"] for t in tab["terminals"]}
+        busy = {k: v for k, v in busy.items() if v}
+        if busy:
+            sys.exit(f"'{label}' is already open and running "
+                     f"{', '.join(sorted(set(busy.values())))} — close or rename it first")
+        app_do("space.close", {"id": space["id"], "confirmed": True})
+
+
 def app_restore(name):
     doc, table = load(name), resume_table()
+    clear_stale_spaces(doc["label"])
     warn, gone, space = [], [], None
     for tab in doc["tabs"]:
         missing_cwds(tab["root"], gone)
