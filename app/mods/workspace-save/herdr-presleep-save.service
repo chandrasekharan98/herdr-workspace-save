@@ -1,0 +1,10 @@
+[Unit]
+Description=Save Herdr app workspaces before suspend or hibernate
+
+[Service]
+ExecStart=%h/.config/herdr-app/mods/workspace-save/presleep-save.sh
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

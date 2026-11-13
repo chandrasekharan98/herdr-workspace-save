@@ -125,4 +125,16 @@ assert root["direction"] == "right" and root["first"]["run"] == "btop", root
 assert root["first"]["screen"]["text"] == "CPU" and root["second"]["screen"] is None, root
 assert "screen" not in wss.layout_only(root["first"])
 
+# A failed resume leaves bare shells: re-saving keeps their agents, but not a moved or busy pane's.
+old = [{"label": "w", "root": SAVED}]
+new = [{"label": "w", "root": {"type": "split", "direction": "down", "ratio": 0.5,
+                               "first": {"type": "pane", "cwd": "/tmp"},
+                               "second": {"type": "pane", "cwd": "/src"}}}]
+wss.carry_over(old, new)
+assert new[0]["root"]["second"]["agent"]["value"] == "dead-beef", new
+assert "agent" not in new[0]["root"]["first"], new  # saved pane ran a command, not an agent
+moved = [{"label": "w", "root": {"type": "pane", "cwd": "/elsewhere"}}]
+wss.carry_over([{"label": "w", "root": SAVED["second"]}], moved)
+assert "agent" not in moved[0]["root"], moved
+
 print("ok")

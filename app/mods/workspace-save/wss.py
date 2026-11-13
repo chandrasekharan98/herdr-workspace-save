@@ -183,6 +183,21 @@ def save(name=None):
                warn, f"Those panes reopen as fresh agents.\n\nSaved to: {path}")
 
 
+def leaves(node):
+    return leaves(node["first"]) + leaves(node["second"]) if node["type"] == "split" else [node]
+
+
+def carry_over(old_tabs, tabs):
+    """A pane now at a bare shell, in the same tab, spot and folder as a saved agent, is that agent
+    lost to a failed resume or a crash: keep its session instead of forgetting it."""
+    old = {t.get("label"): leaves(t["root"]) for t in old_tabs}
+    for tab in tabs:
+        for new, prev in zip(leaves(tab["root"]), old.get(tab.get("label"), [])):
+            if not new.get("agent") and not new.get("command") and prev.get("agent") \
+                    and new.get("cwd") == prev.get("cwd"):
+                new["agent"] = prev["agent"]
+
+
 def write_save(label, tabs, name=None):
     doc = {
         "version": FORMAT_VERSION,
@@ -192,6 +207,11 @@ def write_save(label, tabs, name=None):
         "tabs": tabs,
     }
     path = os.path.join(state_dir(), doc["name"] + ".json")
+    try:
+        with open(path) as f:
+            carry_over(json.load(f).get("tabs", []), tabs)
+    except (OSError, ValueError):
+        pass
     with open(path, "w") as f:
         json.dump(doc, f, indent=2)
         f.write("\n")
@@ -583,6 +603,19 @@ def app_save(space_id):
     print(json.dumps({"path": write_save(label, tabs), "label": label, "warnings": sorted(set(warn))}))
 
 
+def app_save_all():
+    """Save every space that runs something. A space of bare shells is skipped: it is what a
+    failed resume leaves behind, and saving it would overwrite the save that still has its agents."""
+    for space in run_json(["herdr-app", "ls"])["spaces"]:
+        terminals = [t["terminal"] for tab in space["tabs"] for t in tab["terminals"]]
+        if "/" in space["id"] or not any(running_program(t) for t in terminals):
+            continue
+        try:
+            app_save(space["id"])
+        except SystemExit as e:  # one bad space must not stop the rest
+            print(f"{space.get('name') or space['id']}: {e}", file=sys.stderr)
+
+
 def first_leaf(node):
     return first_leaf(node["first"]) if node["type"] == "split" else node
 
@@ -718,6 +751,7 @@ def app_list():
 
 COMMANDS = {
     "app-save": lambda: app_save(sys.argv[2]),
+    "app-save-all": app_save_all,
     "app-restore": lambda: app_restore(sys.argv[2]),
     "app-list": app_list,
     "app-preview": lambda: preview(sys.argv[2]),
