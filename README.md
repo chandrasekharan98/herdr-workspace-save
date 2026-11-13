@@ -63,7 +63,9 @@ space just before suspend or hibernate, enable the bundled user service (no root
 systemctl --user enable --now ~/.config/herdr-app/mods/workspace-save/herdr-presleep-save.service
 ```
 
-It holds a logind delay lock and saves while sleep waits. Spaces that are only bare shells
+It holds a logind delay lock and saves while sleep waits. After you log in, it waits for the
+app window and reopens every space that came back as bare shells from the save with the same
+name. A space where anything is running is left alone. Spaces that are only bare shells
 are skipped, and a pane that fell back to a shell keeps the session it was saved with, so a
 save after a failed resume never wipes the agents you still need to reopen.
 

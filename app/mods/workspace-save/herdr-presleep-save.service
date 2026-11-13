@@ -1,5 +1,5 @@
 [Unit]
-Description=Save Herdr app workspaces before suspend or hibernate
+Description=Save Herdr app workspaces before sleep, reopen them after login
 
 [Service]
 ExecStart=%h/.config/herdr-app/mods/workspace-save/presleep-save.sh

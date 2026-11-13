@@ -616,6 +616,21 @@ def app_save_all():
             print(f"{space.get('name') or space['id']}: {e}", file=sys.stderr)
 
 
+def app_restore_stale():
+    """Reopen every space that came back as bare shells (reboot, failed resume) from the save
+    with its name. A space where anything runs is left alone."""
+    saves = {label: name for name, label, *_ in entries()}
+    for space in run_json(["herdr-app", "ls"])["spaces"]:
+        terminals = [t["terminal"] for tab in space["tabs"] for t in tab["terminals"]]
+        name = saves.get(space.get("name"))
+        if not name or "/" in space["id"] or any(running_program(t) for t in terminals):
+            continue
+        try:
+            app_restore(name)
+        except SystemExit as e:  # one bad space must not stop the rest
+            print(f"{space['name']}: {e}", file=sys.stderr)
+
+
 def first_leaf(node):
     return first_leaf(node["first"]) if node["type"] == "split" else node
 
@@ -752,6 +767,7 @@ def app_list():
 COMMANDS = {
     "app-save": lambda: app_save(sys.argv[2]),
     "app-save-all": app_save_all,
+    "app-restore-stale": app_restore_stale,
     "app-restore": lambda: app_restore(sys.argv[2]),
     "app-list": app_list,
     "app-preview": lambda: preview(sys.argv[2]),
