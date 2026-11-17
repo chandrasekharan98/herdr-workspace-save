@@ -1,4 +1,4 @@
-// Saved workspaces: search, reopen, delete (ctrl+x, undo ctrl+z), save this space, save and close,
+// Saved workspaces: search, preview (click), reopen (Enter, double-click or Open), delete (ctrl+x, undo ctrl+z), save this space, save and close,
 // with a preview of what reopening starts.
 // wss.py beside this file does the work (the herdr TUI plugin runs the same file), so saves
 // from either one show up in both.
@@ -92,9 +92,12 @@ export default class WorkspaceSave extends View {
       .children(lines.map((l) => div().h(line).line_height(`${line}px`).whitespace_nowrap().overflow_hidden().child(l || " "))));
   }
 
-  previewPane(t, p) {
+  previewPane(t, p, s, button) {
     const box = v_flex().id("ws-preview").flex_1().min_w(0).min_h(0).overflow_y_scrollbar().gap(12).p(10)
-      .rounded(8).bg(t.surface ?? t.background).text_size(12);
+      .rounded(8).bg(t.surface ?? t.background).text_size(12)
+      .when(Boolean(s), (e) => e.child(h_flex().items_center().gap(8)
+        .child(div().flex_1().truncate().text_size(13).font_semibold().text_color(t.foreground).child(s.label))
+        .child(button("ws-open", "Open", (cx) => this.open(cx), true))));
     if (!p || p === "loading") return box.child(div().text_color(t.dim).child(p ? "Loading…" : ""));
     if (p.error) return box.child(div().text_color(t.blocked).child(p.error));
     // ponytail: width is the dialog's fixed layout (920 - padding - 340 list - scrollbar), not measured.
@@ -173,9 +176,10 @@ export default class WorkspaceSave extends View {
     const rows = this.rows();
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
     const shown = this.preview(cx, rows[this.at]);
-    const button = (id, label, onClick) =>
-      div().id(id).px(10).py(5).rounded(6).text_size(12).border_1().border_color(t.border)
-        .text_color(t.foreground).cursor_pointer().hover((s) => s.bg(t.hover))
+    const button = (id, label, onClick, primary = false) =>
+      div().id(id).px(10).py(5).rounded(6).text_size(12).border_1().cursor_pointer()
+        .when(primary, (e) => e.bg(t.solid).border_color(t.solid).text_color(t.solid_foreground))
+        .when(!primary, (e) => e.border_color(t.border).text_color(t.foreground).hover((s) => s.bg(t.hover)))
         .on_click((_e, cx) => onClick(cx)).child(label);
 
     return v_flex().id("ws-root").size_full().p(18).gap(10).bg(t.popover).text_size(13)
@@ -204,15 +208,15 @@ export default class WorkspaceSave extends View {
           rows.length ? rows.map((s, i) =>
             h_flex().id(`ws-${s.name}`).px(10).py(7).gap(10).rounded(6).items_center().cursor_pointer()
               .bg(i === this.at ? t.selected : t.popover).hover((st) => st.bg(i === this.at ? t.selected : t.hover))
-              .on_click((_e, cx) => { this.at = i; this.open(cx); })
+              .on_click((e, cx) => { this.at = i; if (e.click_count >= 2) this.open(cx); else cx.notify(); })
               .child(div().flex_1().truncate().text_color(t.foreground).child(s.label))
               .child(div().text_color(t.dim).text_size(12).child(`${s.tabs} tab${s.tabs === 1 ? "" : "s"}`))
               .child(div().text_color(t.dim).text_size(12).child(s.saved_at.replace("T", " ").slice(0, 16)))
               .child(div().id(`ws-del-${s.name}`).px(6).rounded(4).text_color(t.dim).hover((st) => st.text_color(t.blocked))
                 .on_click((_e, cx) => { cx.stop_propagation(); this.remove(cx, s); }).child("✕")))
             : [div().p(10).text_color(t.muted).child(this.saves.length ? "No match." : this.loaded ? "No saved workspaces yet." : "Loading…")]))
-          .child(this.previewPane(t, rows.length ? shown : null)))
+          .child(this.previewPane(t, rows.length ? shown : null, rows[this.at], button)))
       .child(div().text_size(11).text_color(t.dim).child(this.note ||
-        "Enter reopens · ctrl+x deletes · ctrl+z undoes · ctrl+s saves this space · ctrl+shift+s saves and closes · Esc"));
+        "Click previews · Enter or double-click reopens · ctrl+x deletes · ctrl+z undoes · ctrl+s saves this space · ctrl+shift+s saves and closes · Esc"));
   }
 }
