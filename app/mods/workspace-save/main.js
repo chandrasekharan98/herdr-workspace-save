@@ -1,5 +1,3 @@
-// Saved workspaces: search, preview (click), reopen (Enter, double-click or Open), delete (ctrl+x, undo ctrl+z), save this space, save and close,
-// with a preview of what reopening starts.
 // wss.py beside this file does the work (the herdr TUI plugin runs the same file), so saves
 // from either one show up in both.
 
