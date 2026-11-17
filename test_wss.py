@@ -137,4 +137,20 @@ moved = [{"label": "w", "root": {"type": "pane", "cwd": "/elsewhere"}}]
 wss.carry_over([{"label": "w", "root": SAVED["second"]}], moved)
 assert "agent" not in moved[0]["root"], moved
 
+# Never a second process on a live session: from any herdr, a saved command, or twice in one save.
+import subprocess, sys, uuid
+ref = str(uuid.uuid4())
+live = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", ref])
+try:
+    agy = {"type": "pane", "agent": {"agent": "agy", "kind": "id", "value": ref}}
+    warn = []
+    assert wss.armed_command(agy, table, warn) is None and "already running" in warn[0], warn
+    assert wss.armed_command({"command": ["claude", "--resume", ref]}, table) is None
+finally:
+    live.kill()
+    live.wait()
+assert wss.armed_command(agy, table) == f"agy --conversation {ref}"
+warn = []
+assert wss.armed_command(agy, table, warn) is None and "twice" in warn[0], warn
+
 print("ok")

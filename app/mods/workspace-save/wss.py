@@ -230,14 +230,56 @@ def claude_transcript_exists(ref):
     return bool(glob.glob(os.path.expanduser(f"~/.claude/projects/*/{ref}.jsonl")))
 
 
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_started = set()  # sessions this run already armed: a save can hold one session in two panes
+
+
+def session_running(ref):
+    """pid of a live process already on this agent session, else None. Two processes on one
+    session write one transcript, so a restore must never start a second: the id as a whole argv
+    word (`claude --resume <id>`, from any herdr), or Claude Code's own sessions/<pid>.json."""
+    for path in glob.glob("/proc/[0-9]*/cmdline"):
+        try:
+            with open(path, "rb") as f:
+                if ref in f.read().decode(errors="replace").split("\0"):
+                    return int(path.split("/")[2])
+        except OSError:
+            continue
+    # ponytail: a dead pid's file plus pid reuse reads as live; compare procStart if that ever bites
+    for path in glob.glob(os.path.expanduser("~/.claude/sessions/*.json")):
+        try:
+            with open(path) as f:
+                s = json.load(f)
+            if s.get("sessionId") == ref and os.path.exists(f"/proc/{int(s['pid'])}"):
+                return int(s["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return None
+
+
 def armed_command(pane, table, warn=None):
     """Text to type into a restored pane, or None. Never executed — the user presses enter."""
     def note(msg):
         if warn is not None:
             warn.append(msg)
 
+    def already_running(ref, what):
+        if ref in _started:
+            note(f"{what} {ref[:8]}: in this save twice, started once")
+            return True
+        pid = session_running(ref)
+        if pid:
+            note(f"{what} {ref[:8]}: already running (pid {pid}), not started again")
+            return True
+        _started.add(ref)
+        return False
+
     cmd = pane.get("command")
     if cmd:
+        # A saved `claude --resume <id>` command is a session too.
+        if any(already_running(w, os.path.basename(cmd[0].split()[0]))
+               for w in " ".join(cmd).split() if UUID.fullmatch(w)):
+            return None
         # A program that sets its process title (npm, node) shows one argv string: "npm run dev".
         if len(cmd) == 1 and " " in cmd[0] and not os.path.exists(cmd[0]):
             return cmd[0]
@@ -259,6 +301,8 @@ def armed_command(pane, table, warn=None):
         # transcript aged out of cleanupPeriodDays; resume would just error
         note(f"claude {ref[:8]}: transcript deleted, opened fresh — raise cleanupPeriodDays")
         return "claude"
+    if already_running(ref, agent):
+        return None
     return shlex.join([part.replace("{ref}", ref) for part in template])
 
 
@@ -591,7 +635,10 @@ def app_save(space_id):
     space = next((s for s in layout_doc()["spaces"] if s["id"] == space_id), None)
     if not space:
         sys.exit(f"no space {space_id} on this machine")
-    shown = next((s for s in run_json(["herdr-app", "ls"])["spaces"] if s["id"] == space_id), {})
+    try:
+        shown = next((s for s in run_json(["herdr-app", "ls"])["spaces"] if s["id"] == space_id), {})
+    except SystemExit:  # window closed (shutdown after quitting it): herdr-core still has the terminals
+        shown = {}
     label = space.get("name") or shown.get("name") or space_id
     tabs, warn = [], []
     for i, tab in enumerate(space.get("tabs", []), 1):
@@ -605,10 +652,17 @@ def app_save(space_id):
 
 def app_save_all():
     """Save every space that runs something. A space of bare shells is skipped: it is what a
-    failed resume leaves behind, and saving it would overwrite the save that still has its agents."""
-    for space in run_json(["herdr-app", "ls"])["spaces"]:
-        terminals = [t["terminal"] for tab in space["tabs"] for t in tab["terminals"]]
-        if "/" in space["id"] or not any(running_program(t) for t in terminals):
+    failed resume leaves behind, and saving it would overwrite the save that still has its agents.
+    Reads herdr-core, not the window: the terminals outlive a closed window, so this still saves."""
+    def terminals(node):
+        if node["type"] == "block":
+            t = (node.get("content") or {}).get("terminal")
+            return [t] if t else []
+        return [t for c in node.get("children", []) for t in terminals(c)]
+
+    for space in layout_doc()["spaces"]:
+        if "/" in space["id"] or not any(running_program(t) for tab in space.get("tabs", [])
+                                         for t in terminals(tab["root"])):
             continue
         try:
             app_save(space["id"])

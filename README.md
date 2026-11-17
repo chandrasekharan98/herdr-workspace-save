@@ -54,20 +54,25 @@ Everything works with the mouse too: click a save to reopen it, ✕ to delete it
 
 ![The Saved workspaces dialog: saves on the left, the selected one's tab drawn with its panes' screens on the right](app/preview.png)
 
-### Save automatically before sleep (Linux)
+### Save automatically before sleep and shutdown (Linux)
 
-If a hibernate resume fails, the machine cold-boots and every agent is gone. To save every
-space just before suspend or hibernate, enable the bundled user service (no root needed):
+If a hibernate resume fails, or you reboot, every agent is gone. To save every space just
+before suspend, hibernate, reboot or power-off, enable the bundled user service (no root needed):
 
 ```bash
 systemctl --user enable --now ~/.config/herdr-app/mods/workspace-save/herdr-presleep-save.service
 ```
 
-It holds a logind delay lock and saves while sleep waits. After you log in, it waits for the
+It holds a logind delay lock and saves while sleep or shutdown waits. The save reads
+herdr-core, so it works after you close the window: herdr-core keeps the terminals running. After you log in, it waits for the
 app window and reopens every space that came back as bare shells from the save with the same
 name. A space where anything is running is left alone. Spaces that are only bare shells
 are skipped, and a pane that fell back to a shell keeps the session it was saved with, so a
 save after a failed resume never wipes the agents you still need to reopen.
+
+A restore never starts a second process on a session that is already running: anywhere on
+the machine, in any herdr, or twice in one save. That pane opens as a shell and the restore
+reports it, because two processes on one session corrupt its transcript.
 
 Want save and open in the spaces right-click menu? Ask your agent to "add the
 workspace-save space menu items to my layout" ([how](app/RECIPE.md#optional-drawer-and-space-menu)).
