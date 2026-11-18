@@ -121,6 +121,9 @@ Reopening rebuilds the tabs and splits and types each pane's command without run
 you press Enter only where you want. Agents with a resume flag (claude, codex, opencode and
 more) resume their session. In the picker, `ctrl-x` deletes and `ctrl-z` undoes.
 
+From a script, with Herdr running: `python3 wss.py restore <name>` reopens a save without the
+picker. `list`, `delete <name>` and `undelete` work the same way.
+
 Uninstall with `herdr plugin uninstall workspace-save`.
 
 ## Details

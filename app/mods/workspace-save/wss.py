@@ -58,9 +58,8 @@ def resume_table():
 
 
 def call(method, params):
-    sock_path = os.environ.get("HERDR_SOCKET_PATH")
-    if not sock_path:
-        sys.exit("HERDR_SOCKET_PATH unset — not running inside Herdr")
+    sock_path = os.environ.get("HERDR_SOCKET_PATH") or os.path.join(
+        os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "herdr", "herdr.sock")
     s = socket.socket(socket.AF_UNIX)
     s.connect(sock_path)
     s.sendall((json.dumps({"id": "wss", "method": method, "params": params}) + "\n").encode())
