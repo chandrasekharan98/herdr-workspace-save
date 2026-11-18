@@ -182,6 +182,21 @@ def save(name=None):
                warn, f"Those panes reopen as fresh agents.\n\nSaved to: {path}")
 
 
+def leaves(node):
+    return leaves(node["first"]) + leaves(node["second"]) if node["type"] == "split" else [node]
+
+
+def carry_over(old_tabs, tabs):
+    """A pane now at a bare shell, in the same tab, spot and folder as a saved agent, is that agent
+    lost to a failed resume or a crash: keep its session instead of forgetting it."""
+    old = {t.get("label"): leaves(t["root"]) for t in old_tabs}
+    for tab in tabs:
+        for new, prev in zip(leaves(tab["root"]), old.get(tab.get("label"), [])):
+            if not new.get("agent") and not new.get("command") and prev.get("agent") \
+                    and new.get("cwd") == prev.get("cwd"):
+                new["agent"] = prev["agent"]
+
+
 def write_save(label, tabs, name=None):
     doc = {
         "version": FORMAT_VERSION,
@@ -191,6 +206,11 @@ def write_save(label, tabs, name=None):
         "tabs": tabs,
     }
     path = os.path.join(state_dir(), doc["name"] + ".json")
+    try:
+        with open(path) as f:
+            carry_over(json.load(f).get("tabs", []), tabs)
+    except (OSError, ValueError):
+        pass
     with open(path, "w") as f:
         json.dump(doc, f, indent=2)
         f.write("\n")
@@ -209,14 +229,56 @@ def claude_transcript_exists(ref):
     return bool(glob.glob(os.path.expanduser(f"~/.claude/projects/*/{ref}.jsonl")))
 
 
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+_started = set()  # sessions this run already armed: a save can hold one session in two panes
+
+
+def session_running(ref):
+    """pid of a live process already on this agent session, else None. Two processes on one
+    session write one transcript, so a restore must never start a second: the id as a whole argv
+    word (`claude --resume <id>`, from any herdr), or Claude Code's own sessions/<pid>.json."""
+    for path in glob.glob("/proc/[0-9]*/cmdline"):
+        try:
+            with open(path, "rb") as f:
+                if ref in f.read().decode(errors="replace").split("\0"):
+                    return int(path.split("/")[2])
+        except OSError:
+            continue
+    # ponytail: a dead pid's file plus pid reuse reads as live; compare procStart if that ever bites
+    for path in glob.glob(os.path.expanduser("~/.claude/sessions/*.json")):
+        try:
+            with open(path) as f:
+                s = json.load(f)
+            if s.get("sessionId") == ref and os.path.exists(f"/proc/{int(s['pid'])}"):
+                return int(s["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return None
+
+
 def armed_command(pane, table, warn=None):
     """Text to type into a restored pane, or None. Never executed — the user presses enter."""
     def note(msg):
         if warn is not None:
             warn.append(msg)
 
+    def already_running(ref, what):
+        if ref in _started:
+            note(f"{what} {ref[:8]}: in this save twice, started once")
+            return True
+        pid = session_running(ref)
+        if pid:
+            note(f"{what} {ref[:8]}: already running (pid {pid}), not started again")
+            return True
+        _started.add(ref)
+        return False
+
     cmd = pane.get("command")
     if cmd:
+        # A saved `claude --resume <id>` command is a session too.
+        if any(already_running(w, os.path.basename(cmd[0].split()[0]))
+               for w in " ".join(cmd).split() if UUID.fullmatch(w)):
+            return None
         # A program that sets its process title (npm, node) shows one argv string: "npm run dev".
         if len(cmd) == 1 and " " in cmd[0] and not os.path.exists(cmd[0]):
             return cmd[0]
@@ -238,6 +300,8 @@ def armed_command(pane, table, warn=None):
         # transcript aged out of cleanupPeriodDays; resume would just error
         note(f"claude {ref[:8]}: transcript deleted, opened fresh — raise cleanupPeriodDays")
         return "claude"
+    if already_running(ref, agent):
+        return None
     return shlex.join([part.replace("{ref}", ref) for part in template])
 
 
@@ -570,7 +634,10 @@ def app_save(space_id):
     space = next((s for s in layout_doc()["spaces"] if s["id"] == space_id), None)
     if not space:
         sys.exit(f"no space {space_id} on this machine")
-    shown = next((s for s in run_json(["herdr-app", "ls"])["spaces"] if s["id"] == space_id), {})
+    try:
+        shown = next((s for s in run_json(["herdr-app", "ls"])["spaces"] if s["id"] == space_id), {})
+    except SystemExit:  # window closed (shutdown after quitting it): herdr-core still has the terminals
+        shown = {}
     label = space.get("name") or shown.get("name") or space_id
     tabs, warn = [], []
     for i, tab in enumerate(space.get("tabs", []), 1):
@@ -580,6 +647,41 @@ def app_save(space_id):
     if not tabs:
         sys.exit(f"'{label}' has no terminals to save")
     print(json.dumps({"path": write_save(label, tabs), "label": label, "warnings": sorted(set(warn))}))
+
+
+def app_save_all():
+    """Save every space that runs something. A space of bare shells is skipped: it is what a
+    failed resume leaves behind, and saving it would overwrite the save that still has its agents.
+    Reads herdr-core, not the window: the terminals outlive a closed window, so this still saves."""
+    def terminals(node):
+        if node["type"] == "block":
+            t = (node.get("content") or {}).get("terminal")
+            return [t] if t else []
+        return [t for c in node.get("children", []) for t in terminals(c)]
+
+    for space in layout_doc()["spaces"]:
+        if "/" in space["id"] or not any(running_program(t) for tab in space.get("tabs", [])
+                                         for t in terminals(tab["root"])):
+            continue
+        try:
+            app_save(space["id"])
+        except SystemExit as e:  # one bad space must not stop the rest
+            print(f"{space.get('name') or space['id']}: {e}", file=sys.stderr)
+
+
+def app_restore_stale():
+    """Reopen every space that came back as bare shells (reboot, failed resume) from the save
+    with its name. A space where anything runs is left alone."""
+    saves = {label: name for name, label, *_ in entries()}
+    for space in run_json(["herdr-app", "ls"])["spaces"]:
+        terminals = [t["terminal"] for tab in space["tabs"] for t in tab["terminals"]]
+        name = saves.get(space.get("name"))
+        if not name or "/" in space["id"] or any(running_program(t) for t in terminals):
+            continue
+        try:
+            app_restore(name)
+        except SystemExit as e:  # one bad space must not stop the rest
+            print(f"{space['name']}: {e}", file=sys.stderr)
 
 
 def first_leaf(node):
@@ -614,8 +716,33 @@ def build(node, pane, table, warn):
     build(node["second"], made.get("pane") or pane_of(made["terminal"]), table, warn)
 
 
+def running_program(address):
+    """Name of what a terminal runs beyond its shell, or None for a bare prompt."""
+    t = run_json(["hc", "get", address, "--json"])
+    fg = t.get("foreground") or {}
+    if (not fg or fg.get("name") in SHELLS) and (fg.get("pid") or t.get("pid")):
+        fg = tty_foreground(fg.get("pid") or t["pid"]) or fg
+    return fg.get("name") if fg.get("name") not in SHELLS else None
+
+
+def clear_stale_spaces(label):
+    """After a reboot the app brings a space back with bare shells. Restoring beside it would
+    leave two spaces with one name, and agents addressing each other by name get the wrong one."""
+    for space in run_json(["herdr-app", "ls"])["spaces"]:
+        if space.get("name") != label:
+            continue
+        busy = {t["terminal"]: running_program(t["terminal"])
+                for tab in space["tabs"] for t in tab["terminals"]}
+        busy = {k: v for k, v in busy.items() if v}
+        if busy:
+            sys.exit(f"'{label}' is already open and running "
+                     f"{', '.join(sorted(set(busy.values())))} — close or rename it first")
+        app_do("space.close", {"id": space["id"], "confirmed": True})
+
+
 def app_restore(name):
     doc, table = load(name), resume_table()
+    clear_stale_spaces(doc["label"])
     warn, gone, space = [], [], None
     for tab in doc["tabs"]:
         missing_cwds(tab["root"], gone)
@@ -692,6 +819,8 @@ def app_list():
 
 COMMANDS = {
     "app-save": lambda: app_save(sys.argv[2]),
+    "app-save-all": app_save_all,
+    "app-restore-stale": app_restore_stale,
     "app-restore": lambda: app_restore(sys.argv[2]),
     "app-list": app_list,
     "app-preview": lambda: preview(sys.argv[2]),

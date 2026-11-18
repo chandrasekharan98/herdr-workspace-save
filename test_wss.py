@@ -125,4 +125,32 @@ assert root["direction"] == "right" and root["first"]["run"] == "btop", root
 assert root["first"]["screen"]["text"] == "CPU" and root["second"]["screen"] is None, root
 assert "screen" not in wss.layout_only(root["first"])
 
+# A failed resume leaves bare shells: re-saving keeps their agents, but not a moved or busy pane's.
+old = [{"label": "w", "root": SAVED}]
+new = [{"label": "w", "root": {"type": "split", "direction": "down", "ratio": 0.5,
+                               "first": {"type": "pane", "cwd": "/tmp"},
+                               "second": {"type": "pane", "cwd": "/src"}}}]
+wss.carry_over(old, new)
+assert new[0]["root"]["second"]["agent"]["value"] == "dead-beef", new
+assert "agent" not in new[0]["root"]["first"], new  # saved pane ran a command, not an agent
+moved = [{"label": "w", "root": {"type": "pane", "cwd": "/elsewhere"}}]
+wss.carry_over([{"label": "w", "root": SAVED["second"]}], moved)
+assert "agent" not in moved[0]["root"], moved
+
+# Never a second process on a live session: from any herdr, a saved command, or twice in one save.
+import subprocess, sys, uuid
+ref = str(uuid.uuid4())
+live = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", ref])
+try:
+    agy = {"type": "pane", "agent": {"agent": "agy", "kind": "id", "value": ref}}
+    warn = []
+    assert wss.armed_command(agy, table, warn) is None and "already running" in warn[0], warn
+    assert wss.armed_command({"command": ["claude", "--resume", ref]}, table) is None
+finally:
+    live.kill()
+    live.wait()
+assert wss.armed_command(agy, table) == f"agy --conversation {ref}"
+warn = []
+assert wss.armed_command(agy, table, warn) is None and "twice" in warn[0], warn
+
 print("ok")
